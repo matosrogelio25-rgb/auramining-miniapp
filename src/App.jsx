@@ -1,32 +1,21 @@
 import React, { useState, useEffect } from 'react';
 
-// 1. Detección segura del usuario de Telegram
-const [telegramUser, setTelegramUser] = useState(() => {
-  try {
-    const tg = window.Telegram?.WebApp;
-    if (tg?.initDataUnsafe?.user) {
-      return tg.initDataUnsafe.user;
-    }
-  } catch (e) {
-    console.log("No se pudo leer Telegram WebApp", e);
-  }
-  return { id: 'aura_test_user', username: 'usuario_prueba', first_name: 'Prueba' };
-});
-
-// 2. Balance persistente único y seguro por usuario
-const [balance, setBalance] = useState(() => {
-  try {
-    const tg = window.Telegram?.WebApp;
-    const userId = tg?.initDataUnsafe?.user?.id || 'test_user';
-    
-    const saved = localStorage.getItem(`aura_balance_${userId}`);
+export default function App() {
+  // 1. Balance persistente con detección de Telegram
+  const [balance, setBalance] = useState(() => {
+    const saved = localStorage.getItem('aura_balance');
     if (saved !== null) return JSON.parse(saved);
     
-    return tg?.initDataUnsafe?.user ? 0.00 : 150.00;
-  } catch (e) {
-    return 150.00;
-  }
-});
+    // Si abre desde Telegram, empieza en 0.00. Si abre en PC, usa 150.00
+    const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
+    return isTelegram ? 0.00 : 150.00;
+  });
+
+  // 2. Planes activos persistentes
+  const [activePlans, setActivePlans] = useState(() => {
+    const saved = localStorage.getItem('aura_activePlans');
+    return saved !== null ? JSON.parse(saved) : [];
+  }); 
 
   const [copied, setCopied] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -391,8 +380,8 @@ const [balance, setBalance] = useState(() => {
   AURA MINING
 </h1>
             <p style={styles.headerSubtitle}>
-  {telegramUser ? `ID: ${telegramUser.id} (@${telegramUser.username || telegramUser.first_name})` : ' ⚡ AI CLOUD MINING'}
-</p>
+              {telegramUser ? `ID: @${telegramUser.username || telegramUser.first_name}` : '⚡ AI CLOUD MINING'}
+            </p>
           </div>
           
           <div style={styles.headerRight}>
