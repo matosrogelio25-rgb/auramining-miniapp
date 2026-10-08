@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { 
+  Cpu, Users, ShieldCheck, Wallet, 
+  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers 
+} from 'lucide-react';
 
 export default function App() {
-  // 1. Balance persistente con detección de Telegram
+  const [activeTab, setActiveTab] = useState('mining');
+  const [telegramUser, setTelegramUser] = useState(null);
+  
+  // 1. Balance persistente
   const [balance, setBalance] = useState(() => {
     const saved = localStorage.getItem('aura_balance');
-    if (saved !== null) return JSON.parse(saved);
-    
-    // Si abre desde Telegram, empieza en 0.00. Si abre en PC, usa 150.00
-    const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
-    return isTelegram ? 0.00 : 150.00;
-  });
-
+    return saved !== null ? JSON.parse(saved) : 150.00;
+  }); 
+  
   // 2. Planes activos persistentes
   const [activePlans, setActivePlans] = useState(() => {
     const saved = localStorage.getItem('aura_activePlans');
@@ -519,31 +522,26 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
                 <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   ✨ Adquirir Nuevos Planes (Acumulativos)
-</h3>
-
-{plans.map(plan => (
-  <div key={plan.id} style={styles.planCard}>
-    <div>
-      <h4 style={{ fontSize: '13px', fontWeight: '900', color: '#fff' }}>{plan.name}</h4>
-      <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-        Diario: <span style={{ color: '#34d399', fontWeight: 'bold' }}>+{plan.dailyReward} USDT</span> ({plan.dailyPct})
-      </p>
-      {/* Duración en meses añadida */}
-      <p style={{ fontSize: '10px', color: '#38bdf8', fontWeight: 'bold', marginTop: '3px' }}>
-        ⏳ Duración: {plan.duration}
-      </p>
-    </div>
-    <button 
-      onClick={() => handleBuyPlan(plan)}
-      style={styles.actionButton}
-    >
-      {plan.price} USDT <ArrowRight size={14} style={{ marginLeft: '4px' }} />
-    </button>
-  </div>
-))}
-</div>
-</>
-)}
+                </h3>
+                {plans.map(plan => (
+                  <div key={plan.id} style={styles.planCard}>
+                    <div>
+                      <h4 style={{ fontSize: '13px', fontWeight: '900', color: '#fff' }}>{plan.name}</h4>
+                      <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                        Diario: <span style={{ color: '#34d399', fontWeight: 'bold' }}>+{plan.dailyReward} USDT</span> ({plan.dailyPct})
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => handleBuyPlan(plan)}
+                      style={styles.actionButton}
+                    >
+                      {plan.price} USDT <ArrowRight size={14} style={{ marginLeft: '4px' }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {activeTab === 'team' && (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
