@@ -1,21 +1,15 @@
 import React, { useState, useEffect } from 'react';
 
-export default function App() {
-  // 1. Balance persistente con detección de Telegram
-  const [balance, setBalance] = useState(() => {
-    const saved = localStorage.getItem('aura_balance');
-    if (saved !== null) return JSON.parse(saved);
-    
-    // Si abre desde Telegram, empieza en 0.00. Si abre en PC, usa 150.00
-    const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
-    return isTelegram ? 0.00 : 150.00;
-  });
-
-  // 2. Planes activos persistentes
-  const [activePlans, setActivePlans] = useState(() => {
-    const saved = localStorage.getItem('aura_activePlans');
-    return saved !== null ? JSON.parse(saved) : [];
-  }); 
+// 1. Balance persistente único por usuario
+const [balance, setBalance] = useState(() => {
+  const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
+  const userId = isTelegram ? window.Telegram.WebApp.initDataUnsafe.user.id : 'test_user';
+  
+  const saved = localStorage.getItem(`aura_balance_${userId}`);
+  if (saved !== null) return JSON.parse(saved);
+  
+  return isTelegram ? 0.00 : 150.00;
+});
 
   const [copied, setCopied] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -380,8 +374,8 @@ export default function App() {
   AURA MINING
 </h1>
             <p style={styles.headerSubtitle}>
-              {telegramUser ? `ID: @${telegramUser.username || telegramUser.first_name}` : '⚡ AI CLOUD MINING'}
-            </p>
+  {telegramUser ? `ID: ${telegramUser.id} (@${telegramUser.username || telegramUser.first_name})` : ' ⚡ AI CLOUD MINING'}
+</p>
           </div>
           
           <div style={styles.headerRight}>
