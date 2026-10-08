@@ -4,16 +4,13 @@ import {
   Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers 
 } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:5000'; // Ajusta esto si tu backend usa otra URL o puerto
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('mining');
   const [telegramUser, setTelegramUser] = useState(null);
   
-  // Balance sincronizado con backend
-  const [balance, setBalance] = useState(0.00); 
-  
-  // Planes activos sincronizados con backend
+  const [balance, setBalance] = useState(150.00); 
   const [activePlans, setActivePlans] = useState([]); 
 
   const [copied, setCopied] = useState(false);
@@ -21,7 +18,6 @@ export default function App() {
   const [withdrawWallet, setWithdrawWallet] = useState('');
   const [withdrawStatus, setWithdrawStatus] = useState(null);
 
-  // Depósitos de Usuario y Admin
   const [depositAmount, setDepositAmount] = useState('');
   const [depositTxHash, setDepositTxHash] = useState('');
   const [depositStatus, setDepositStatus] = useState(null);
@@ -46,13 +42,11 @@ export default function App() {
     { level: 'Nivel 3', activeUsers: 0, totalUsers: 0, commission: '2%', earned: '0.00' },
   ]);
 
-  // Historial de retiros
   const [withdrawalHistory, setWithdrawalHistory] = useState([
     { id: 1, amount: '25.00', date: '06 Oct 2026', time: '14:32', status: 'Exitoso' },
     { id: 2, amount: '15.50', date: '04 Oct 2026', time: '09:15', status: 'Pendiente' },
   ]);
 
-  // Retiros de admin
   const [adminWithdrawals, setAdminWithdrawals] = useState([
     { id: 101, user: '@crypto_carlos', userId: '998877', amount: '30.00', wallet: 'TXYZ...abc99', date: '07 Oct - 16:20', status: 'Pendiente' },
     { id: 102, user: '@lucia_minera', userId: '445566', amount: '15.00', wallet: 'TLMN...xyz12', date: '07 Oct - 17:05', status: 'Aprobado/Pagado' },
@@ -62,74 +56,72 @@ export default function App() {
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
   const [adminMsg, setAdminMsg] = useState(null);
 
-  // Obtener datos del usuario desde MongoDB al iniciar
-  const fetchUserData = async (user) => {
-    try {
-      const res = await fetch(`${API_URL}/user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          telegramId: user.id.toString(),
-          username: user.username || 'Sin username',
-          firstName: user.first_name || 'Minero'
-        })
-      });
-      const data = await res.json();
-      if (data) {
-        setBalance(data.balance ?? 0);
-        setActivePlans(data.activePlans || []);
-        if (data.miningEarningsHistory && data.miningEarningsHistory.length > 0) {
-          setMiningEarningsHistory(data.miningEarningsHistory);
-        }
-        if (data.withdrawalHistory && data.withdrawalHistory.length > 0) {
-          setWithdrawalHistory(data.withdrawalHistory);
-        }
-      }
-    } catch (error) {
-      console.error('Error al conectar con el backend:', error);
-    }
-  };
-
-  // Función para actualizar datos en el servidor
-  const updateBackendData = async (updatedFields) => {
-    if (!telegramUser) return;
-    try {
-      await fetch(`${API_URL}/user/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          telegramId: telegramUser.id.toString(),
-          ...updatedFields
-        })
-      });
-    } catch (error) {
-      console.error('Error al actualizar en el servidor:', error);
-    }
-  };
-
+  // Inicializar Telegram WebApp y Cargar Datos desde MongoDB Atlas
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
 
     const tg = window.Telegram?.WebApp;
+    let tId = '77889944';
+    let uName = 'aura_test_user';
+    let fName = 'MinerDemo';
+
     if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-      const u = tg.initDataUnsafe.user;
-      setTelegramUser(u);
-      fetchUserData(u);
+      const tgUser = tg.initDataUnsafe.user;
+      tId = tgUser.id.toString();
+      uName = tgUser.username || 'Sin username';
+      fName = tgUser.first_name || 'Minero';
+      setTelegramUser(tgUser);
+      if (tg.expand) tg.expand();
     } else {
-      // Usuario de prueba simulado para pruebas locales o en navegador
-      const mockUser = { id: 6062598843, first_name: "Jose", username: "BreakThebank66" };
-      setTelegramUser(mockUser);
-      fetchUserData(mockUser);
+      setTelegramUser({ id: tId, first_name: fName, username: uName });
     }
 
-    if (tg && tg.expand) {
-      tg.expand();
-    }
+    // Cargar datos persistentes de MongoDB a través del backend
+    const fetchUserDataFromMongo = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/user`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telegramId: tId, username: uName, firstName: fName })
+        });
+        const data = await response.json();
+        if (response.ok && data) {
+          if (data.balance !== undefined) setBalance(data.balance);
+          if (data.activePlans) setActivePlans(data.activePlans);
+          if (data.miningEarningsHistory) setMiningEarningsHistory(data.miningEarningsHistory);
+          if (data.withdrawalHistory) setWithdrawalHistory(data.withdrawalHistory);
+        }
+      } catch (error) {
+        console.error('Error conectando con MongoDB Atlas:', error);
+      }
+    };
+
+    fetchUserDataFromMongo();
 
     return () => clearInterval(timer);
   }, []);
+
+  // Función clave para sincronizar y guardar permanentemente en MongoDB Atlas
+  const syncToMongo = async (newBalance, newPlans, newMining, newWithdrawals) => {
+    if (!telegramUser) return;
+    try {
+      await fetch(`${API_URL}/api/user/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: telegramUser.id.toString(),
+          balance: newBalance !== undefined ? newBalance : balance,
+          activePlans: newPlans !== undefined ? newPlans : activePlans,
+          miningEarningsHistory: newMining !== undefined ? newMining : miningEarningsHistory,
+          withdrawalHistory: newWithdrawals !== undefined ? newWithdrawals : withdrawalHistory,
+        })
+      });
+    } catch (error) {
+      console.error('Error al guardar en MongoDB Atlas:', error);
+    }
+  };
 
   useEffect(() => {
     let interval = null;
@@ -186,10 +178,10 @@ export default function App() {
     const updatedHistory = [newRecord, ...miningEarningsHistory];
     setMiningEarningsHistory(updatedHistory);
 
-    updateBackendData({ balance: newBalance, miningEarningsHistory: updatedHistory });
-
     setIsMiningReady(false);
     setMiningSecondsLeft(86400);
+
+    syncToMongo(newBalance, undefined, updatedHistory, undefined);
   };
 
   const plans = [
@@ -216,9 +208,9 @@ export default function App() {
 
     const updatedPlans = [...activePlans, newActivePlan];
     setActivePlans(updatedPlans);
-
-    updateBackendData({ balance: newBalance, activePlans: updatedPlans });
     alert(`🎉 ¡Plan ${plan.name} adquirido con éxito! Se han descontado ${plan.price} USDT.`);
+
+    syncToMongo(newBalance, updatedPlans, undefined, undefined);
   };
 
   const handleCopyLink = () => {
@@ -262,50 +254,42 @@ export default function App() {
     };
 
     const updatedWithdrawals = [newRecord, ...withdrawalHistory];
-    const newBalance = balance - amountNum;
-
     setWithdrawalHistory(updatedWithdrawals);
     setAdminWithdrawals(prev => [newAdminRequest, ...prev]);
+
+    const newBalance = balance - amountNum;
     setBalance(newBalance);
-
-    updateBackendData({ balance: newBalance, withdrawalHistory: updatedWithdrawals });
-
     setWithdrawStatus({ error: false, msg: '🚀 ¡Retiro solicitado con éxito! Quedó en estado Pendiente.' });
     setWithdrawAmount('');
     setWithdrawWallet('');
+
+    syncToMongo(newBalance, undefined, undefined, updatedWithdrawals);
   };
 
   const handleApproveWithdrawal = (id) => {
     setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado/Pagado' } : item));
-    setWithdrawalHistory(prev => prev.map(item => item.id === id ? { ...item, status: 'Exitoso' } : item));
+    const updated = withdrawalHistory.map(item => item.id === id ? { ...item, status: 'Exitoso' } : item);
+    setWithdrawalHistory(updated);
+    syncToMongo(undefined, undefined, undefined, updated);
   };
 
   const handleDenyWithdrawal = (id) => {
     setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Denegado' } : item));
-    setWithdrawalHistory(prev => prev.map(item => item.id === id ? { ...item, status: 'Denegado' } : item));
+    const updated = withdrawalHistory.map(item => item.id === id ? { ...item, status: 'Denegado' } : item);
+    setWithdrawalHistory(updated);
+    syncToMongo(undefined, undefined, undefined, updated);
   };
 
   const handleManualRechargeSubmit = (e) => {
     e.preventDefault();
-    const amountNum = parseFloat(manualRechargeAmount);
-    if (!manualRechargeUser || isNaN(amountNum) || amountNum <= 0) {
-      setAdminMsg({ error: true, msg: '⚠️ Completa el usuario/ID y un monto válido.' });
+    if (!manualRechargeUser || !manualRechargeAmount) {
+      setAdminMsg({ error: true, msg: '⚠️ Completa el ID y el monto.' });
       return;
     }
-
-    setBalance(prev => prev + amountNum);
-
-    setAdminMsg({ 
-      error: false, 
-      msg: `✅ ¡Recarga exitosa! Se acreditaron ${amountNum.toFixed(2)} USDT al usuario ${manualRechargeUser}.` 
-    });
-    
+    setAdminMsg({ error: false, msg: `✅ Se recargaron ${manualRechargeAmount} USDT al usuario ${manualRechargeUser} con éxito.` });
     setManualRechargeUser('');
     setManualRechargeAmount('');
-
-    setTimeout(() => {
-      setAdminMsg(null);
-    }, 8000);
+    setTimeout(() => setAdminMsg(null), 4000);
   };
 
   const handleUserDepositRequest = (e) => {
@@ -343,7 +327,8 @@ export default function App() {
     const depositAmountValue = parseFloat(depositToApprove.amount);
     const level1Commission = depositAmountValue * 0.10;
 
-    setBalance(prev => prev + level1Commission);
+    const newBalance = balance + level1Commission;
+    setBalance(newBalance);
 
     setTeamLevels(prevLevels => prevLevels.map((lvl, index) => {
       if (index === 0) {
@@ -359,6 +344,8 @@ export default function App() {
 
     setAdminDeposits(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado' } : item));
     alert(`✅ Depósito aprobado. Comisión de ${level1Commission.toFixed(2)} USDT acreditada a tu Nivel 1.`);
+
+    syncToMongo(newBalance, undefined, undefined, undefined);
   };
 
   const handleDenyDeposit = (id) => {
@@ -367,8 +354,6 @@ export default function App() {
 
   const formattedDate = currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   const formattedTime = currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-  const isOwner = telegramUser && (telegramUser.id === 6062598843 || telegramUser.username === 'BreakThebank66');
 
   return (
     <div style={styles.outerContainer}>
@@ -384,7 +369,6 @@ export default function App() {
         }
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
-
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         @keyframes pulseGlow {
           0% { box-shadow: 0 0 15px rgba(52, 211, 153, 0.2); transform: scale(1); }
@@ -398,7 +382,6 @@ export default function App() {
       `}</style>
 
       <div style={styles.phoneContainer}>
-        
         <div style={styles.bgBlurContainer}>
           <div style={styles.bgImageLayer} />
           <div style={styles.bgDarkOverlay} />
@@ -406,7 +389,7 @@ export default function App() {
 
         <header style={styles.header}>
           <div>
-            <h1 style={{ ...styles.headerTitle, fontSize: '18px', fontWeight: '900' }}>
+            <h1 style={{ ...styles.headerTitle, fontSize: '28px', fontWeight: '900' }}>
               AURA MINING
             </h1>
             <p style={styles.headerSubtitle}>
@@ -428,7 +411,6 @@ export default function App() {
         </header>
 
         <main style={styles.mainContent}>
-          
           {activeTab === 'mining' && (
             <>
               <div style={styles.blueCardGrid}>
@@ -557,9 +539,6 @@ export default function App() {
                       <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
                         Diario: <span style={{ color: '#34d399', fontWeight: 'bold' }}>+{plan.dailyReward} USDT</span> ({plan.dailyPct})
                       </p>
-                      <p style={{ fontSize: '10px', color: '#38bdf8', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={10} /> Duración: {plan.duration}
-                      </p>
                     </div>
                     <button 
                       onClick={() => handleBuyPlan(plan)}
@@ -627,13 +606,12 @@ export default function App() {
 
           {activeTab === 'wallet' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              
               <div style={{ ...styles.panelBox, border: '1px solid rgba(52, 211, 153, 0.3)' }}>
                 <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#34d399' }}>
                   <PlusCircle size={18} /> Recargar Saldo (USDT - TRC20)
                 </h3>
                 <p style={{ fontSize: '11px', color: '#cbd5e1', marginBottom: '10px' }}>
-                  Transfiere USDT a nuestra dirección oficial y reporta tu pago aquí para acreditar tu saldo.
+                  Transfiere USDT a nuestra dirección oficial de Binance y reporta tu pago aquí para acreditar tu saldo.
                 </p>
 
                 <div style={{ background: '#020617', padding: '10px', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -672,7 +650,7 @@ export default function App() {
                     />
                   </div>
                   <button type="submit" style={{ ...styles.fullWidthButton, backgroundColor: '#10b981' }}>
-                    📤 Reportar Depósito
+                    📤 Reportar Depósito a Binance
                   </button>
                 </form>
               </div>
@@ -767,15 +745,49 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={styles.panelBox}>
                 <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <Globe size={18} color="#38bdf8" /> AuraMining LTD - Sede Global
+                  <Globe size={18} color="#38bdf8" /> AuraMining Technologies Ltd.
                 </h3>
                 <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '14px' }}>
-                  Empresa líder en minería de criptomonedas impulsada por algoritmos de Inteligencia Artificial.
+                  Somos una corporación global especializada en minería de criptomonedas de alto rendimiento y computación distribuida, operando bajo estrictos marcos legales y financieros internacionales.
                 </p>
+                
                 <div style={{ background: '#020617', padding: '14px', borderRadius: '12px', fontSize: '11px', color: '#cbd5e1', lineHeight: '1.6', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p>🏢 <strong>Razón Social:</strong> AuraMining Technologies LTD</p>
-                  <p style={{ marginTop: '4px' }}>🏛️ <strong>Registro Mercantil UK:</strong> #14892341</p>
-                  <p style={{ marginTop: '4px' }}>📍 <strong>Dirección:</strong> London, UK</p>
+                  <p>🏢 <strong>Razón Social:</strong> AuraMining Technologies Ltd.</p>
+                  <p style={{ marginTop: '4px' }}>🏛️ <strong>Registro Oficial (UK):</strong> #14892341 (Companies House)</p>
+                  <p style={{ marginTop: '4px' }}>📍 <strong>Sede Central:</strong> Level 30, The Leadenhall Building, 122 Leadenhall Street, London, EC3V 4AB, United Kingdom</p>
+                  <p style={{ marginTop: '4px' }}>📧 <strong>Correo de Soporte:</strong> support@auramining.uk</p>
+                </div>
+              </div>
+
+              <div style={styles.panelBox}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#38bdf8' }}>
+                  <Cpu size={16} /> Granjas de Minería & Energía Renovable
+                </h3>
+                <p style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '12px' }}>
+                  Nuestras operaciones se extienden a lo largo del <strong>Reino Unido y Europa</strong>. Diseñamos y operamos granjas de servidores ASIC de última generación impulsadas en su totalidad por <strong>energía solar, parques eólicos y fuentes 100% verdes</strong>, garantizando un modelo ecológico, sostenible y con un bajo costo operativo energético.
+                </p>
+                <div style={{ background: '#020617', padding: '10px', borderRadius: '10px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Capacidad Operativa Global:</span>
+                  <strong style={{ color: '#34d399' }}>420 PH/s Hashrate Verde</strong>
+                </div>
+              </div>
+
+              <div style={{ ...styles.panelBox, border: '1px solid rgba(52, 211, 153, 0.3)' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#34d399' }}>
+                  <ShieldCheck size={16} /> Certificación Financiera AAA
+                </h3>
+                <p style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '10px' }}>
+                  Contamos con la prestigiosa **Certificación AAA** otorgada por auditores internacionales independientes, avalando nuestra sólida solvencia, reservas en activos digitales y la estabilidad total de nuestros planes de minería en la nube.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
+                  <div style={{ background: '#020617', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>Calificación FSK</span>
+                    <strong style={{ fontSize: '12px', color: '#34d399', display: 'block', marginTop: '2px' }}>AAA (Máxima Solvencia)</strong>
+                  </div>
+                  <div style={{ background: '#020617', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>Auditoría Blockchain</span>
+                    <strong style={{ fontSize: '12px', color: '#38bdf8', display: 'block', marginTop: '2px' }}>Verificada 24/7</strong>
+                  </div>
                 </div>
               </div>
             </div>
@@ -783,154 +795,151 @@ export default function App() {
 
           {activeTab === 'admin' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              
-              {isOwner ? (
-                <>
-                  <div style={{ ...styles.panelBox, border: '1px solid rgba(56, 189, 248, 0.4)' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#38bdf8' }}>
-                      <PlusCircle size={16} /> Recarga Manual de Saldo (Dueño)
-                    </h3>
-                    
-                    {adminMsg && (
-                      <div style={{ 
-                        padding: '10px 12px', 
-                        borderRadius: '8px', 
-                        fontSize: '11px', 
-                        fontWeight: 'bold', 
-                        marginBottom: '10px', 
-                        background: adminMsg.error ? 'rgba(239,68,68,0.2)' : 'rgba(16, 185, 129, 0.25)', 
-                        color: adminMsg.error ? '#f87171' : '#34d399',
-                        border: `1px solid ${adminMsg.error ? 'rgba(239,68,68,0.4)' : 'rgba(16, 185, 129, 0.5)'}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        {!adminMsg.error && <CheckCircle2 size={16} color="#34d399" />}
-                        {adminMsg.msg}
-                      </div>
-                    )}
+              <div style={{ ...styles.panelBox, border: '1px solid rgba(56, 189, 248, 0.4)' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#38bdf8' }}>
+                  <PlusCircle size={16} /> Recarga Manual de Saldo (Dueño)
+                </h3>
+                <p style={{ fontSize: '11px', color: '#cbd5e1', marginBottom: '12px' }}>
+                  Suma saldo directamente al usuario tras verificar su comprobante o pago externo.
+                </p>
 
-                    <form onSubmit={handleManualRechargeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>ID o Username</label>
-                        <input 
-                          type="text" 
-                          placeholder="@usuario" 
-                          value={manualRechargeUser}
-                          onChange={(e) => setManualRechargeUser(e.target.value)}
-                          style={styles.inputField} 
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Monto a Sumar</label>
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          placeholder="50.00" 
-                          value={manualRechargeAmount}
-                          onChange={(e) => setManualRechargeAmount(e.target.value)}
-                          style={styles.inputField} 
-                        />
-                      </div>
-                      <button type="submit" style={{ ...styles.fullWidthButton, backgroundColor: '#0ea5e9' }}>
-                        ➕ ACREDITAR SALDO
-                      </button>
-                    </form>
+                {adminMsg && (
+                  <div style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px', background: adminMsg.error ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', color: adminMsg.error ? '#f87171' : '#34d399' }}>
+                    {adminMsg.msg}
                   </div>
+                )}
 
-                  <div style={{ ...styles.panelBox, border: '1px solid rgba(16, 185, 129, 0.4)' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#34d399' }}>
-                      <Wallet size={16} /> Solicitudes de Depósito (Admin)
-                    </h3>
-                    {adminDeposits.length === 0 ? (
-                      <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay depósitos pendientes.</p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {adminDeposits.map((dep) => (
-                          <div key={dep.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                              <div>
-                                <span style={{ fontSize: '12px', fontWeight: '900', color: '#ffffff' }}>{dep.user}</span>
-                                <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800' }}>+{dep.amount} USDT</span>
-                              </div>
-                              <span style={{ fontSize: '10px', color: '#94a3b8' }}>{dep.date}</span>
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#94a3b8', wordBreak: 'break-all', marginBottom: '8px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '6px' }}>
-                              <strong>TXID:</strong> {dep.txHash}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: dep.status === 'Pendiente' ? '#facc15' : dep.status === 'Aprobado' ? '#34d399' : '#f87171' }}>
-                                {dep.status}
-                              </span>
-                              {dep.status === 'Pendiente' && (
-                                <div style={{ display: 'flex', gap: '6px' }}>
-                                  <button onClick={() => handleApproveDeposit(dep.id)} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                    Aprobar
-                                  </button>
-                                  <button onClick={() => handleDenyDeposit(dep.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                    Rechazar
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                <form onSubmit={handleManualRechargeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>ID o Username de Telegram</label>
+                    <input 
+                      type="text" 
+                      placeholder="@usuario o ID" 
+                      value={manualRechargeUser}
+                      onChange={(e) => setManualRechargeUser(e.target.value)}
+                      style={styles.inputField} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Monto a Sumar (USDT)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      placeholder="50.00" 
+                      value={manualRechargeAmount}
+                      onChange={(e) => setManualRechargeAmount(e.target.value)}
+                      style={styles.inputField} 
+                    />
+                  </div>
+                  <button type="submit" style={{ ...styles.fullWidthButton, backgroundColor: '#0ea5e9' }}>
+                    ➕ ACREDITAR SALDO AL USUARIO
+                  </button>
+                </form>
+              </div>
+
+              <div style={{ ...styles.panelBox, border: '1px solid rgba(52, 211, 153, 0.4)' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#34d399' }}>
+                  <ShieldCheck size={16} /> Depósitos Reportados por Usuarios (Admin)
+                </h3>
+
+                {adminDeposits.length === 0 ? (
+                  <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay depósitos pendientes.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {adminDeposits.map((dep) => (
+                      <div key={dep.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{dep.user} ({dep.userId})</span>
+                            <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800', marginTop: '2px' }}>Monto: {dep.amount} USDT</span>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                          <span style={{ fontSize: '10px', color: '#94a3b8' }}>{dep.date}</span>
+                        </div>
 
-                  <div style={{ ...styles.panelBox, border: '1px solid rgba(234, 179, 8, 0.4)' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#facc15' }}>
-                      <ShieldAlert size={16} /> Solicitudes de Retiro (Admin)
-                    </h3>
-                    {adminWithdrawals.length === 0 ? (
-                      <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay solicitudes.</p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {adminWithdrawals.map((req) => (
-                          <div key={req.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                              <div>
-                                <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{req.user} ({req.userId})</span>
-                                <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800', marginTop: '2px' }}>Monto: {req.amount} USDT</span>
-                              </div>
-                              <span style={{ fontSize: '10px', color: '#94a3b8' }}>{req.date}</span>
+                        <div style={{ fontSize: '10px', color: '#94a3b8', wordBreak: 'break-all', marginBottom: '10px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '6px' }}>
+                          <strong>TXID:</strong> {dep.txHash}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: dep.status === 'Pendiente' ? '#facc15' : dep.status === 'Aprobado' ? '#34d399' : '#f87171' }}>
+                            Estado: {dep.status}
+                          </span>
+
+                          {dep.status === 'Pendiente' && (
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button 
+                                onClick={() => handleApproveDeposit(dep.id)}
+                                style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                              >
+                                <Check size={12} /> Aprobar (+10% Red)
+                              </button>
+                              <button 
+                                onClick={() => handleDenyDeposit(dep.id)}
+                                style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                              >
+                                <X size={12} /> Rechazar
+                              </button>
                             </div>
-                            <div style={{ fontSize: '10px', color: '#94a3b8', wordBreak: 'break-all', marginBottom: '10px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '6px' }}>
-                              <strong>TRC20:</strong> {req.wallet}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: req.status === 'Pendiente' ? '#facc15' : req.status === 'Aprobado/Pagado' ? '#34d399' : '#f87171' }}>
-                                Estado: {req.status}
-                              </span>
-                              {req.status === 'Pendiente' && (
-                                <div style={{ display: 'flex', gap: '6px' }}>
-                                  <button onClick={() => handleApproveWithdrawal(req.id)} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                    <Check size={12} /> Pagar
-                                  </button>
-                                  <button onClick={() => handleDenyWithdrawal(req.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                    <X size={12} /> Denegar
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ ...styles.panelBox, border: '1px solid rgba(234, 179, 8, 0.4)' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#facc15' }}>
+                  <ShieldAlert size={16} /> Solicitudes de Retiro (Admin)
+                </h3>
+
+                {adminWithdrawals.length === 0 ? (
+                  <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay solicitudes.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {adminWithdrawals.map((req) => (
+                      <div key={req.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{req.user} ({req.userId})</span>
+                            <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800', marginTop: '2px' }}>Monto: {req.amount} USDT</span>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div style={{ ...styles.panelBox, textAlign: 'center', padding: '30px' }}>
-                  <ShieldAlert size={32} color="#f87171" style={{ margin: '0 auto 10px auto' }} />
-                  <h3 style={{ fontSize: '14px', fontWeight: '900', color: '#f87171' }}>Acceso Restringido</h3>
-                  <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>Esta sección es exclusiva para el administrador general de Aura Mining.</p>
-                </div>
-              )}
+                          <span style={{ fontSize: '10px', color: '#94a3b8' }}>{req.date}</span>
+                        </div>
 
+                        <div style={{ fontSize: '10px', color: '#94a3b8', wordBreak: 'break-all', marginBottom: '10px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '6px' }}>
+                          <strong>TRC20:</strong> {req.wallet}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: req.status === 'Pendiente' ? '#facc15' : req.status === 'Aprobado/Pagado' ? '#34d399' : '#f87171' }}>
+                            Estado: {req.status}
+                          </span>
+
+                          {req.status === 'Pendiente' && (
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button 
+                                onClick={() => handleApproveWithdrawal(req.id)}
+                                style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                              >
+                                <Check size={12} /> Pagar / Aprobar
+                              </button>
+                              <button 
+                                onClick={() => handleDenyWithdrawal(req.id)}
+                                style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                              >
+                                <X size={12} /> Denegar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
-
         </main>
 
         <nav style={styles.bottomNav}>
@@ -950,14 +959,11 @@ export default function App() {
             <Globe size={18} />
             <span style={styles.navText}>Empresa</span>
           </button>
-          {isOwner && (
-            <button onClick={() => setActiveTab('admin')} style={{ ...styles.navButton, color: activeTab === 'admin' ? '#38bdf8' : '#94a3b8' }}>
-              <ShieldAlert size={18} />
-              <span style={styles.navText}>Admin</span>
-            </button>
-          )}
+          <button onClick={() => setActiveTab('admin')} style={{ ...styles.navButton, color: activeTab === 'admin' ? '#38bdf8' : '#94a3b8' }}>
+            <ShieldAlert size={18} />
+            <span style={styles.navText}>Admin</span>
+          </button>
         </nav>
-
       </div>
     </div>
   );
@@ -1225,4 +1231,5 @@ const styles = {
     fontWeight: '700',
   },
 };
+
 
