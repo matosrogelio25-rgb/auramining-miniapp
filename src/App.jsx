@@ -1,23 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Cpu, Users, ShieldCheck, Wallet, 
-  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers 
-} from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('mining');
-  const [telegramUser, setTelegramUser] = useState(null);
-  
   // 1. Balance persistente con detección de Telegram
-const [balance, setBalance] = useState(() => {
-  const saved = localStorage.getItem('aura_balance');
-  if (saved !== null) return JSON.parse(saved);
-  
-  // Si abre desde Telegram, empieza en 0.00. Si abre en PC para pruebas, usa 150.00
-  const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
-  return isTelegram ? 0.00 : 150.00;
-}); 
-  
+  const [balance, setBalance] = useState(() => {
+    const saved = localStorage.getItem('aura_balance');
+    if (saved !== null) return JSON.parse(saved);
+    
+    // Si abre desde Telegram, empieza en 0.00. Si abre en PC, usa 150.00
+    const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
+    return isTelegram ? 0.00 : 150.00;
+  });
+
   // 2. Planes activos persistentes
   const [activePlans, setActivePlans] = useState(() => {
     const saved = localStorage.getItem('aura_activePlans');
