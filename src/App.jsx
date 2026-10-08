@@ -1,13 +1,29 @@
 import React, { useState, useEffect } from 'react';
 
 export default function App() {
-  // 1. Balance persistente con detección de Telegram
+  // 0. Detección segura del usuario de Telegram
+  const [telegramUser, setTelegramUser] = useState(() => {
+    try {
+      const tg = window.Telegram?.WebApp;
+      if (tg?.initDataUnsafe?.user) {
+        tg.ready();
+        tg.expand();
+        return tg.initDataUnsafe.user;
+      }
+    } catch (e) {
+      console.log("No Telegram WebApp", e);
+    }
+    return { id: 'aura_test_user', username: 'usuario_prueba', first_name: 'Prueba' };
+  });
+
+  // 1. Balance persistente único por ID de usuario (empezando en 0.00 para Telegram)
   const [balance, setBalance] = useState(() => {
-    const saved = localStorage.getItem('aura_balance');
+    const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
+    const userId = isTelegram ? window.Telegram.WebApp.initDataUnsafe.user.id : 'test_user';
+    
+    const saved = localStorage.getItem(`aura_balance_${userId}`);
     if (saved !== null) return JSON.parse(saved);
     
-    // Si abre desde Telegram, empieza en 0.00. Si abre en PC, usa 150.00
-    const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
     return isTelegram ? 0.00 : 150.00;
   });
 
@@ -49,6 +65,13 @@ export default function App() {
     { level: 'Nivel 2', activeUsers: 0, totalUsers: 0, commission: '5%', earned: '0.00' },
     { level: 'Nivel 3', activeUsers: 0, totalUsers: 0, commission: '2%', earned: '0.00' },
   ]);
+
+  // Guardado automático del balance por usuario
+  useEffect(() => {
+    const isTelegram = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user;
+    const userId = isTelegram ? window.Telegram.WebApp.initDataUnsafe.user.id : 'test_user';
+    localStorage.setItem(`aura_balance_${userId}`, JSON.stringify(balance));
+  }, [balance]);
 
   // 3. Historial de retiros persistente
   const [withdrawalHistory, setWithdrawalHistory] = useState(() => {
