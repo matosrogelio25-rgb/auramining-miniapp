@@ -4,28 +4,17 @@ import {
   Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers 
 } from 'lucide-react';
 
+const API_URL = 'http://localhost:5000/api';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('mining');
   const [telegramUser, setTelegramUser] = useState(null);
   
-  // 1. Balance persistente con validación de Dueño (@BreakThebank66 / ID: 6062598843)
-  const [balance, setBalance] = useState(() => {
-    const saved = localStorage.getItem('aura_balance');
-    if (saved !== null) return JSON.parse(saved);
-    
-    // Si es el dueño, inicia con 150.00 USDT; para cualquier otro usuario inicia en 0.00
-    const tg = window.Telegram?.WebApp;
-    const user = tg?.initDataUnsafe?.user;
-    const isOwner = user && (user.id === 6062598843 || user.username === 'BreakThebank66');
-    
-    return isOwner ? 150.00 : 0.00;
-  }); 
+  // Balance sincronizado con backend
+  const [balance, setBalance] = useState(0.00); 
   
-  // 2. Planes activos persistentes
-  const [activePlans, setActivePlans] = useState(() => {
-    const saved = localStorage.getItem('aura_activePlans');
-    return saved !== null ? JSON.parse(saved) : [];
-  }); 
+  // Planes activos sincronizados con backend
+  const [activePlans, setActivePlans] = useState([]); 
 
   const [copied, setCopied] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -37,12 +26,9 @@ export default function App() {
   const [depositTxHash, setDepositTxHash] = useState('');
   const [depositStatus, setDepositStatus] = useState(null);
   
-  const [adminDeposits, setAdminDeposits] = useState(() => {
-    const saved = localStorage.getItem('aura_adminDeposits');
-    return saved !== null ? JSON.parse(saved) : [
-      { id: 201, user: '@pedro_crypto', userId: '112233', amount: '50.00', txHash: '0x8f9a...3e21', date: '07 Oct - 18:10', status: 'Pendiente' }
-    ];
-  });
+  const [adminDeposits, setAdminDeposits] = useState([
+    { id: 201, user: '@pedro_crypto', userId: '112233', amount: '50.00', txHash: '0x8f9a...3e21', date: '07 Oct - 18:10', status: 'Pendiente' }
+  ]);
   
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -60,47 +46,66 @@ export default function App() {
     { level: 'Nivel 3', activeUsers: 0, totalUsers: 0, commission: '2%', earned: '0.00' },
   ]);
 
-  // 3. Historial de retiros persistente
-  const [withdrawalHistory, setWithdrawalHistory] = useState(() => {
-    const saved = localStorage.getItem('aura_withdrawalHistory');
-    return saved !== null ? JSON.parse(saved) : [
-      { id: 1, amount: '25.00', date: '06 Oct 2026', time: '14:32', status: 'Exitoso' },
-      { id: 2, amount: '15.50', date: '04 Oct 2026', time: '09:15', status: 'Pendiente' },
-    ];
-  });
+  // Historial de retiros
+  const [withdrawalHistory, setWithdrawalHistory] = useState([
+    { id: 1, amount: '25.00', date: '06 Oct 2026', time: '14:32', status: 'Exitoso' },
+    { id: 2, amount: '15.50', date: '04 Oct 2026', time: '09:15', status: 'Pendiente' },
+  ]);
 
-  // 4. Retiros de admin persistentes
-  const [adminWithdrawals, setAdminWithdrawals] = useState(() => {
-    const saved = localStorage.getItem('aura_adminWithdrawals');
-    return saved !== null ? JSON.parse(saved) : [
-      { id: 101, user: '@crypto_carlos', userId: '998877', amount: '30.00', wallet: 'TXYZ...abc99', date: '07 Oct - 16:20', status: 'Pendiente' },
-      { id: 102, user: '@lucia_minera', userId: '445566', amount: '15.00', wallet: 'TLMN...xyz12', date: '07 Oct - 17:05', status: 'Aprobado/Pagado' },
-    ];
-  });
+  // Retiros de admin
+  const [adminWithdrawals, setAdminWithdrawals] = useState([
+    { id: 101, user: '@crypto_carlos', userId: '998877', amount: '30.00', wallet: 'TXYZ...abc99', date: '07 Oct - 16:20', status: 'Pendiente' },
+    { id: 102, user: '@lucia_minera', userId: '445566', amount: '15.00', wallet: 'TLMN...xyz12', date: '07 Oct - 17:05', status: 'Aprobado/Pagado' },
+  ]);
 
   const [manualRechargeUser, setManualRechargeUser] = useState('');
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
   const [adminMsg, setAdminMsg] = useState(null);
 
-  useEffect(() => {
-    localStorage.setItem('aura_balance', JSON.stringify(balance));
-  }, [balance]);
+  // Obtener datos del usuario desde MongoDB al iniciar
+  const fetchUserData = async (user) => {
+    try {
+      const res = await fetch(`${API_URL}/user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: user.id.toString(),
+          username: user.username || 'Sin username',
+          firstName: user.first_name || 'Minero'
+        })
+      });
+      const data = await res.json();
+      if (data) {
+        setBalance(data.balance ?? 0);
+        setActivePlans(data.activePlans || []);
+        if (data.miningEarningsHistory && data.miningEarningsHistory.length > 0) {
+          setMiningEarningsHistory(data.miningEarningsHistory);
+        }
+        if (data.withdrawalHistory && data.withdrawalHistory.length > 0) {
+          setWithdrawalHistory(data.withdrawalHistory);
+        }
+      }
+    } catch (error) {
+      console.error('Error al conectar con el backend:', error);
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('aura_activePlans', JSON.stringify(activePlans));
-  }, [activePlans]);
-
-  useEffect(() => {
-    localStorage.setItem('aura_withdrawalHistory', JSON.stringify(withdrawalHistory));
-  }, [withdrawalHistory]);
-
-  useEffect(() => {
-    localStorage.setItem('aura_adminWithdrawals', JSON.stringify(adminWithdrawals));
-  }, [adminWithdrawals]);
-
-  useEffect(() => {
-    localStorage.setItem('aura_adminDeposits', JSON.stringify(adminDeposits));
-  }, [adminDeposits]);
+  // Función para actualizar datos en el servidor
+  const updateBackendData = async (updatedFields) => {
+    if (!telegramUser) return;
+    try {
+      await fetch(`${API_URL}/user/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: telegramUser.id.toString(),
+          ...updatedFields
+        })
+      });
+    } catch (error) {
+      console.error('Error al actualizar en el servidor:', error);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -109,10 +114,14 @@ export default function App() {
 
     const tg = window.Telegram?.WebApp;
     if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-      setTelegramUser(tg.initDataUnsafe.user);
+      const u = tg.initDataUnsafe.user;
+      setTelegramUser(u);
+      fetchUserData(u);
     } else {
-      // Si estás probando localmente en navegador, puedes cambiar esto temporalmente para simular el dueño o un usuario normal
-      setTelegramUser({ id: 6062598843, first_name: "Jose", username: "BreakThebank66" });
+      // Usuario de prueba simulado para pruebas locales o en navegador
+      const mockUser = { id: 6062598843, first_name: "Jose", username: "BreakThebank66" };
+      setTelegramUser(mockUser);
+      fetchUserData(mockUser);
     }
 
     if (tg && tg.expand) {
@@ -165,7 +174,8 @@ export default function App() {
     if (!isMiningReady || activePlans.length === 0) return;
 
     const totalReward = getTotalRewardAmount();
-    setBalance(prev => prev + totalReward);
+    const newBalance = balance + totalReward;
+    setBalance(newBalance);
 
     const newRecord = {
       id: Date.now(),
@@ -173,7 +183,10 @@ export default function App() {
       date: currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
       time: currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
     };
-    setMiningEarningsHistory([newRecord, ...miningEarningsHistory]);
+    const updatedHistory = [newRecord, ...miningEarningsHistory];
+    setMiningEarningsHistory(updatedHistory);
+
+    updateBackendData({ balance: newBalance, miningEarningsHistory: updatedHistory });
 
     setIsMiningReady(false);
     setMiningSecondsLeft(86400);
@@ -192,7 +205,8 @@ export default function App() {
       return;
     }
 
-    setBalance(prev => prev - plan.price);
+    const newBalance = balance - plan.price;
+    setBalance(newBalance);
 
     const newActivePlan = {
       ...plan,
@@ -200,7 +214,10 @@ export default function App() {
       purchasedAt: currentTime.toLocaleDateString()
     };
 
-    setActivePlans(prev => [...prev, newActivePlan]);
+    const updatedPlans = [...activePlans, newActivePlan];
+    setActivePlans(updatedPlans);
+
+    updateBackendData({ balance: newBalance, activePlans: updatedPlans });
     alert(`🎉 ¡Plan ${plan.name} adquirido con éxito! Se han descontado ${plan.price} USDT.`);
   };
 
@@ -244,11 +261,16 @@ export default function App() {
       status: 'Pendiente'
     };
 
-    setWithdrawalHistory([newRecord, ...withdrawalHistory]);
+    const updatedWithdrawals = [newRecord, ...withdrawalHistory];
+    const newBalance = balance - amountNum;
+
+    setWithdrawalHistory(updatedWithdrawals);
     setAdminWithdrawals(prev => [newAdminRequest, ...prev]);
+    setBalance(newBalance);
+
+    updateBackendData({ balance: newBalance, withdrawalHistory: updatedWithdrawals });
 
     setWithdrawStatus({ error: false, msg: '🚀 ¡Retiro solicitado con éxito! Quedó en estado Pendiente.' });
-    setBalance(prev => prev - amountNum);
     setWithdrawAmount('');
     setWithdrawWallet('');
   };
@@ -263,7 +285,6 @@ export default function App() {
     setWithdrawalHistory(prev => prev.map(item => item.id === id ? { ...item, status: 'Denegado' } : item));
   };
 
-  // Recarga manual con notificación verde visible por 8 segundos
   const handleManualRechargeSubmit = (e) => {
     e.preventDefault();
     const amountNum = parseFloat(manualRechargeAmount);
@@ -347,7 +368,6 @@ export default function App() {
   const formattedDate = currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   const formattedTime = currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-  // Verificación si el usuario actual es el dueño
   const isOwner = telegramUser && (telegramUser.id === 6062598843 || telegramUser.username === 'BreakThebank66');
 
   return (
@@ -764,7 +784,6 @@ export default function App() {
           {activeTab === 'admin' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               
-              {/* SOLO SE MUESTRA EL PANEL DE ADMIN SI ES EL DUEÑO (@BreakThebank66 / 6062598843) */}
               {isOwner ? (
                 <>
                   <div style={{ ...styles.panelBox, border: '1px solid rgba(56, 189, 248, 0.4)' }}>
@@ -772,7 +791,6 @@ export default function App() {
                       <PlusCircle size={16} /> Recarga Manual de Saldo (Dueño)
                     </h3>
                     
-                    {/* NOTIFICACIÓN VERDE DE RECARGA (Dura 8 segundos) */}
                     {adminMsg && (
                       <div style={{ 
                         padding: '10px 12px', 
