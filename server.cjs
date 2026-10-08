@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://matosrogelio25_db_user:OX2fIEqCab5KpJSz@cluster0.8kxvvf6.mongodb.net/?appName=Cluster0';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://saucebtb:saucebtb1/?appName=Cluster0';
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ ¡Conectado a MongoDB Atlas exitosamente!'))
