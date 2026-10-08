@@ -8,10 +8,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('mining');
   const [telegramUser, setTelegramUser] = useState(null);
   
-  // 1. Balance persistente
+  // 1. Balance persistente con validación de Dueño (@BreakThebank66 / ID: 6062598843)
   const [balance, setBalance] = useState(() => {
     const saved = localStorage.getItem('aura_balance');
-    return saved !== null ? JSON.parse(saved) : 150.00;
+    if (saved !== null) return JSON.parse(saved);
+    
+    // Si es el dueño, inicia con 150.00 USDT; para cualquier otro usuario inicia en 0.00
+    const tg = window.Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+    const isOwner = user && (user.id === 6062598843 || user.username === 'BreakThebank66');
+    
+    return isOwner ? 150.00 : 0.00;
   }); 
   
   // 2. Planes activos persistentes
@@ -25,7 +32,7 @@ export default function App() {
   const [withdrawWallet, setWithdrawWallet] = useState('');
   const [withdrawStatus, setWithdrawStatus] = useState(null);
 
-  // NUEVOS ESTADOS: Depósitos de Usuario y Admin
+  // Depósitos de Usuario y Admin
   const [depositAmount, setDepositAmount] = useState('');
   const [depositTxHash, setDepositTxHash] = useState('');
   const [depositStatus, setDepositStatus] = useState(null);
@@ -75,7 +82,6 @@ export default function App() {
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
   const [adminMsg, setAdminMsg] = useState(null);
 
-  // Sincronizar automáticamente con localStorage al cambiar los estados
   useEffect(() => {
     localStorage.setItem('aura_balance', JSON.stringify(balance));
   }, [balance]);
@@ -92,7 +98,6 @@ export default function App() {
     localStorage.setItem('aura_adminWithdrawals', JSON.stringify(adminWithdrawals));
   }, [adminWithdrawals]);
 
-  // NUEVO USEEFFECT: Persistir depósitos de admin
   useEffect(() => {
     localStorage.setItem('aura_adminDeposits', JSON.stringify(adminDeposits));
   }, [adminDeposits]);
@@ -106,7 +111,8 @@ export default function App() {
     if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
       setTelegramUser(tg.initDataUnsafe.user);
     } else {
-      setTelegramUser({ id: 77889944, first_name: "MinerDemo", username: "aura_test_user" });
+      // Si estás probando localmente en navegador, puedes cambiar esto temporalmente para simular el dueño o un usuario normal
+      setTelegramUser({ id: 6062598843, first_name: "Jose", username: "BreakThebank66" });
     }
 
     if (tg && tg.expand) {
@@ -220,7 +226,6 @@ export default function App() {
     const uniqueId = Date.now();
     const formattedDateStr = `${currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} - ${currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
 
-    // 1. Registro para el historial del usuario
     const newRecord = {
       id: uniqueId,
       amount: amountNum.toFixed(2),
@@ -229,7 +234,6 @@ export default function App() {
       status: 'Pendiente'
     };
 
-    // 2. Registro para el panel de Administrador
     const newAdminRequest = {
       id: uniqueId,
       user: telegramUser?.username ? `@${telegramUser.username}` : (telegramUser?.first_name || 'Usuario'),
@@ -250,34 +254,39 @@ export default function App() {
   };
 
   const handleApproveWithdrawal = (id) => {
-    // 1. Actualizar el estado en la lista del Administrador
     setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado/Pagado' } : item));
-
-    // 2. Sincronizar y actualizar también el estado en el Historial de Retiros del Usuario
     setWithdrawalHistory(prev => prev.map(item => item.id === id ? { ...item, status: 'Exitoso' } : item));
   };
 
   const handleDenyWithdrawal = (id) => {
-    // 1. Actualizar en la lista del Administrador
     setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Denegado' } : item));
-
-    // 2. Sincronizar y actualizar también en el Historial del Usuario
     setWithdrawalHistory(prev => prev.map(item => item.id === id ? { ...item, status: 'Denegado' } : item));
   };
 
+  // Recarga manual con notificación verde visible por 8 segundos
   const handleManualRechargeSubmit = (e) => {
     e.preventDefault();
-    if (!manualRechargeUser || !manualRechargeAmount) {
-      setAdminMsg({ error: true, msg: '⚠️ Completa el ID y el monto.' });
+    const amountNum = parseFloat(manualRechargeAmount);
+    if (!manualRechargeUser || isNaN(amountNum) || amountNum <= 0) {
+      setAdminMsg({ error: true, msg: '⚠️ Completa el usuario/ID y un monto válido.' });
       return;
     }
-    setAdminMsg({ error: false, msg: `✅ Se recargaron ${manualRechargeAmount} USDT al usuario ${manualRechargeUser} con éxito.` });
+
+    setBalance(prev => prev + amountNum);
+
+    setAdminMsg({ 
+      error: false, 
+      msg: `✅ ¡Recarga exitosa! Se acreditaron ${amountNum.toFixed(2)} USDT al usuario ${manualRechargeUser}.` 
+    });
+    
     setManualRechargeUser('');
     setManualRechargeAmount('');
-    setTimeout(() => setAdminMsg(null), 4000);
+
+    setTimeout(() => {
+      setAdminMsg(null);
+    }, 8000);
   };
 
-  // --- NUEVAS FUNCIONES DE DEPÓSITOS (USUARIO Y ADMIN) ---
   const handleUserDepositRequest = (e) => {
     e.preventDefault();
     const amountNum = parseFloat(depositAmount);
@@ -306,20 +315,17 @@ export default function App() {
     setDepositTxHash('');
   };
 
-  // --- FUNCIÓN ACTUALIZADA: Aprobar Depósito y Distribuir Comisiones de Red ---
   const handleApproveDeposit = (id) => {
     const depositToApprove = adminDeposits.find(d => d.id === id);
     if (!depositToApprove || depositToApprove.status !== 'Pendiente') return;
 
     const depositAmountValue = parseFloat(depositToApprove.amount);
-    const level1Commission = depositAmountValue * 0.10; // 10% de comisión
+    const level1Commission = depositAmountValue * 0.10;
 
-    // 1. Sumar al balance general y sumar la comisión directamente al balance retirable
     setBalance(prev => prev + level1Commission);
 
-    // 2. Actualizar las estadísticas de la red (Activos y Ganancias de Nivel 1)
     setTeamLevels(prevLevels => prevLevels.map((lvl, index) => {
-      if (index === 0) { // Nivel 1
+      if (index === 0) {
         const currentEarned = parseFloat(lvl.earned || 0);
         return {
           ...lvl,
@@ -330,7 +336,6 @@ export default function App() {
       return lvl;
     }));
 
-    // 3. Marcar el depósito como aprobado
     setAdminDeposits(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado' } : item));
     alert(`✅ Depósito aprobado. Comisión de ${level1Commission.toFixed(2)} USDT acreditada a tu Nivel 1.`);
   };
@@ -341,6 +346,9 @@ export default function App() {
 
   const formattedDate = currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   const formattedTime = currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  // Verificación si el usuario actual es el dueño
+  const isOwner = telegramUser && (telegramUser.id === 6062598843 || telegramUser.username === 'BreakThebank66');
 
   return (
     <div style={styles.outerContainer}>
@@ -354,7 +362,6 @@ export default function App() {
           width: 100vw;
           height: 100vh;
         }
-        /* Ocultar barra de desplazamiento en todos los navegadores conservando el scroll táctil */
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -379,9 +386,9 @@ export default function App() {
 
         <header style={styles.header}>
           <div>
-            <h1 style={{ ...styles.headerTitle, fontSize: '28px', fontWeight: '900' }}>
-  AURA MINING
-</h1>
+            <h1 style={{ ...styles.headerTitle, fontSize: '18px', fontWeight: '900' }}>
+              AURA MINING
+            </h1>
             <p style={styles.headerSubtitle}>
               {telegramUser ? `ID: @${telegramUser.username || telegramUser.first_name}` : '⚡ AI CLOUD MINING'}
             </p>
@@ -530,6 +537,9 @@ export default function App() {
                       <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
                         Diario: <span style={{ color: '#34d399', fontWeight: 'bold' }}>+{plan.dailyReward} USDT</span> ({plan.dailyPct})
                       </p>
+                      <p style={{ fontSize: '10px', color: '#38bdf8', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={10} /> Duración: {plan.duration}
+                      </p>
                     </div>
                     <button 
                       onClick={() => handleBuyPlan(plan)}
@@ -544,380 +554,395 @@ export default function App() {
           )}
 
           {activeTab === 'team' && (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-    <div style={styles.panelBox}>
-      <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-        <Users size={18} color="#34d399" /> Programa de Referidos
-      </h3>
-      <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '12px' }}>
-        Invita amigos y genera comisiones automáticas según su actividad en la red.
-      </p>
-      <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '6px' }}>Tu Enlace de Invitación</label>
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <input 
-          type="text" 
-          readOnly 
-          value={`https://t.me/AuraMiningBot?start=ref_${telegramUser?.id || 'demo'}`} 
-          style={styles.inputField} 
-        />
-        <button onClick={handleCopyLink} style={styles.actionButton}>
-          <Copy size={14} /> {copied ? '¡Copiado!' : 'Copiar'}
-        </button>
-      </div>
-    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={styles.panelBox}>
+                <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Users size={18} color="#34d399" /> Programa de Referidos
+                </h3>
+                <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '12px' }}>
+                  Invita amigos y genera comisiones automáticas según su actividad en la red.
+                </p>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '6px' }}>Tu Enlace de Invitación</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={`https://t.me/AuraMiningBot?start=ref_${telegramUser?.id || 'demo'}`} 
+                    style={styles.inputField} 
+                  />
+                  <button onClick={handleCopyLink} style={styles.actionButton}>
+                    <Copy size={14} /> {copied ? '¡Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+              </div>
 
-    <div style={styles.panelBox}>
-      <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#38bdf8' }}>
-        <TrendingUp size={16} /> Rendimiento por Niveles
-      </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {teamLevels.map((lvl, index) => (
-          <div key={index} style={styles.levelCard}>
-            <div>
-              <span style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff', display: 'block' }}>{lvl.level}</span>
-              <span style={{ fontSize: '10px', color: '#94a3b8' }}>Comisión de red: {lvl.commission}</span>
-              {/* NUEVO: Muestra el dinero ganado en este nivel */}
-              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#34d399', display: 'block', marginTop: '4px' }}>
-                Generado: {lvl.earned || '0.00'} USDT
-              </span>
+              <div style={styles.panelBox}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#38bdf8' }}>
+                  <TrendingUp size={16} /> Rendimiento por Niveles
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {teamLevels.map((lvl, index) => (
+                    <div key={index} style={styles.levelCard}>
+                      <div>
+                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff', display: 'block' }}>{lvl.level}</span>
+                        <span style={{ fontSize: '10px', color: '#94a3b8' }}>Comisión de red: {lvl.commission}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#34d399', display: 'block', marginTop: '4px' }}>
+                          Generado: {lvl.earned || '0.00'} USDT
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={styles.countBadge}>
+                          <span style={{ color: '#34d399', fontWeight: '900' }}>{lvl.activeUsers}</span>
+                          <span style={{ color: '#64748b' }}> / </span>
+                          <span style={{ color: '#ffffff', fontWeight: '700' }}>{lvl.totalUsers}</span>
+                        </div>
+                        <span style={{ fontSize: '9px', color: '#94a3b8', display: 'block', marginTop: '2px' }}>Activos / Total</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={styles.countBadge}>
-                <span style={{ color: '#34d399', fontWeight: '900' }}>{lvl.activeUsers}</span>
-                <span style={{ color: '#64748b' }}> / </span>
-                <span style={{ color: '#ffffff', fontWeight: '700' }}>{lvl.totalUsers}</span>
-              </div>
-              <span style={{ fontSize: '9px', color: '#94a3b8', display: 'block', marginTop: '2px' }}>Activos / Total</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
+          )}
 
-{activeTab === 'wallet' && (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-    
-    {/* SECCIÓN DE RECARGA DE SALDO (USUARIO) */}
-    <div style={{ ...styles.panelBox, border: '1px solid rgba(52, 211, 153, 0.3)' }}>
-      <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#34d399' }}>
-        <PlusCircle size={18} /> Recargar Saldo (USDT - TRC20)
-      </h3>
-      <p style={{ fontSize: '11px', color: '#cbd5e1', marginBottom: '10px' }}>
-        Transfiere USDT a nuestra dirección oficial de Binance y reporta tu pago aquí para acreditar tu saldo.
-      </p>
+          {activeTab === 'wallet' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              <div style={{ ...styles.panelBox, border: '1px solid rgba(52, 211, 153, 0.3)' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#34d399' }}>
+                  <PlusCircle size={18} /> Recargar Saldo (USDT - TRC20)
+                </h3>
+                <p style={{ fontSize: '11px', color: '#cbd5e1', marginBottom: '10px' }}>
+                  Transfiere USDT a nuestra dirección oficial y reporta tu pago aquí para acreditar tu saldo.
+                </p>
 
-      <div style={{ background: '#020617', padding: '10px', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Dirección Oficial (TRC20):</span>
-        <strong style={{ fontSize: '11px', color: '#facc15', wordBreak: 'break-all' }}>
-          0x88255a44d0beed90ca4a1ff49711f855e9fe5f19
-        </strong>
-      </div>
-
-      {depositStatus && (
-        <div style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px', background: depositStatus.error ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', color: depositStatus.error ? '#f87171' : '#34d399' }}>
-          {depositStatus.msg}
-        </div>
-      )}
-
-      <form onSubmit={handleUserDepositRequest} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Monto Enviado (USDT)</label>
-          <input 
-            type="number" 
-            step="0.01" 
-            placeholder="Ej. 50.00" 
-            value={depositAmount}
-            onChange={(e) => setDepositAmount(e.target.value)}
-            style={styles.inputField} 
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Hash de la Transacción (TXID)</label>
-          <input 
-            type="text" 
-            placeholder="Pega aquí el TXID de tu transferencia" 
-            value={depositTxHash}
-            onChange={(e) => setDepositTxHash(e.target.value)}
-            style={styles.inputField} 
-          />
-        </div>
-        <button type="submit" style={{ ...styles.fullWidthButton, backgroundColor: '#10b981' }}>
-          📤 Reportar Depósito a Binance
-        </button>
-      </form>
-    </div>
-
-    <div style={styles.panelBox}>
-      <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-        <Wallet size={18} color="#34d399" /> Retirar Fondos (USDT)
-      </h3>
-      <p style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '12px' }}>Mínimo de retiro: 15 USDT (Red TRC20).</p>
-      
-      {withdrawStatus && (
-        <div style={{ padding: '10px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', marginBottom: '12px', background: withdrawStatus.error ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', color: withdrawStatus.error ? '#f87171' : '#34d399', border: '1px solid currentColor' }}>
-          {withdrawStatus.msg}
-        </div>
-      )}
-
-      <form onSubmit={handleWithdraw} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Monto a Retirar (USDT)</label>
-          <input 
-            type="number" 
-            step="0.01"
-            placeholder="15.00" 
-            value={withdrawAmount}
-            onChange={(e) => setWithdrawAmount(e.target.value)}
-            style={styles.inputField} 
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Dirección Billetera (TRC20)</label>
-          <input 
-            type="text" 
-            placeholder="T..." 
-            value={withdrawWallet}
-            onChange={(e) => setWithdrawWallet(e.target.value)}
-            style={styles.inputField} 
-          />
-        </div>
-        <button type="submit" style={styles.fullWidthButton}>
-          🚀 SOLICITAR RETIRO INMEDIATO
-        </button>
-      </form>
-    </div>
-
-    <div style={styles.panelBox}>
-      <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#38bdf8' }}>
-        <History size={16} /> Historial de Retiros
-      </h3>
-      {withdrawalHistory.length === 0 ? (
-        <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay retiros registrados aún.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {withdrawalHistory.map((item) => {
-            const isSuccess = item.status === 'Exitoso';
-            return (
-              <div key={item.id} style={styles.historyCard}>
-                <div>
-                  <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff', display: 'block' }}>
-                    {item.amount} USDT
-                  </span>
-                  <span style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                    <Clock size={10} /> {item.date} - {item.time}
-                  </span>
+                <div style={{ background: '#020617', padding: '10px', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Dirección Oficial (TRC20):</span>
+                  <strong style={{ fontSize: '11px', color: '#facc15', wordBreak: 'break-all' }}>
+                    0x88255a44d0beed90ca4a1ff49711f855e9fe5f19
+                  </strong>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '4px', 
-                    fontSize: '11px', 
-                    fontWeight: '800', 
-                    padding: '3px 8px', 
-                    borderRadius: '8px',
-                    backgroundColor: isSuccess ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                    color: isSuccess ? '#34d399' : '#facc15',
-                    border: `1px solid ${isSuccess ? 'rgba(52, 211, 153, 0.3)' : 'rgba(250, 204, 21, 0.3)'}`
-                  }}>
-                    {isSuccess ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                    {item.status}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  </div>
-)}
 
-{activeTab === 'company' && (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-    
-    {/* Tarjeta Principal: Sede y Datos Legales */}
-    <div style={styles.panelBox}>
-      <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-        <Globe size={18} color="#38bdf8" /> AuraMining LTD - Sede Global
-      </h3>
-      <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '14px' }}>
-        Empresa líder en minería de criptomonedas impulsada por algoritmos de Inteligencia Artificial de última generación, optimizando el rendimiento energético en tiempo real.
-      </p>
-      
-      <div style={{ background: '#020617', padding: '14px', borderRadius: '12px', fontSize: '11px', color: '#cbd5e1', lineHeight: '1.6', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <p>🏢 <strong>Razón Social:</strong> AuraMining Technologies LTD</p>
-        <p style={{ marginTop: '4px' }}>🏛️ <strong>Registro Mercantil UK:</strong> #14892341 (Companies House)</p>
-        <p style={{ marginTop: '4px' }}>📍 <strong>Dirección Fiscal:</strong> Level 30, The Leadenhall Building, 122 Leadenhall St, London, EC3V 4AB, UK</p>
-        <p style={{ marginTop: '4px' }}>📧 <strong>Soporte Oficial:</strong> support@auramining.uk</p>
-      </div>
-    </div>
+                {depositStatus && (
+                  <div style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px', background: depositStatus.error ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', color: depositStatus.error ? '#f87171' : '#34d399' }}>
+                    {depositStatus.msg}
+                  </div>
+                )}
 
-    {/* Tarjeta de Certificación y Auditoría */}
-    <div style={{ ...styles.panelBox, border: '1px solid rgba(52, 211, 153, 0.3)' }}>
-      <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#34d399' }}>
-        <ShieldCheck size={16} /> Certificación y Licencias
-      </h3>
-      <p style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '10px' }}>
-        Nuestras operaciones financieras y granjas de servidores mineros están auditadas de manera independiente para garantizar la sostenibilidad del fondo de inversión.
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-        <div style={{ background: '#020617', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
-          <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>Auditoría FSK</span>
-          <strong style={{ fontSize: '12px', color: '#34d399', display: 'block', marginTop: '2px' }}>Aprobada (AAA)</strong>
-        </div>
-        <div style={{ background: '#020617', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
-          <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>Seguridad SSL</span>
-          <strong style={{ fontSize: '12px', color: '#38bdf8', display: 'block', marginTop: '2px' }}>Cloudflare EV</strong>
-        </div>
-      </div>
-    </div>
-
-    {/* Tarjeta de Infraestructura Tecnológica */}
-    <div style={styles.panelBox}>
-      <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#38bdf8' }}>
-        <Cpu size={16} /> Granjas y Grado Tecnológico
-      </h3>
-      <p style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '10px' }}>
-        Contamos con centros de datos de alta eficiencia energética alimentados por fuentes 100% renovables (hidroeléctrica y solar) ubicados en Islandia y el norte de Europa.
-      </p>
-      <div style={{ background: '#020617', padding: '10px', borderRadius: '10px', fontSize: '11px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>Capacidad de Procesamiento:</span>
-        <strong style={{ color: '#ffffff' }}>420 PH/s</strong>
-      </div>
-    </div>
-
-  </div>
-)}
-
-{activeTab === 'admin' && (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-    
-    <div style={{ ...styles.panelBox, border: '1px solid rgba(56, 189, 248, 0.4)' }}>
-      <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#38bdf8' }}>
-        <PlusCircle size={16} /> Recarga Manual de Saldo (Dueño)
-      </h3>
-      <p style={{ fontSize: '11px', color: '#cbd5e1', marginBottom: '12px' }}>
-        Suma saldo directamente al usuario tras verificar su comprobante o pago externo.
-      </p>
-
-      {adminMsg && (
-        <div style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px', background: adminMsg.error ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', color: adminMsg.error ? '#f87171' : '#34d399' }}>
-          {adminMsg.msg}
-        </div>
-      )}
-
-      <form onSubmit={handleManualRechargeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>ID o Username de Telegram</label>
-          <input 
-            type="text" 
-            placeholder="@usuario o ID" 
-            value={manualRechargeUser}
-            onChange={(e) => setManualRechargeUser(e.target.value)}
-            style={styles.inputField} 
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Monto a Sumar (USDT)</label>
-          <input 
-            type="number" 
-            step="0.01"
-            placeholder="50.00" 
-            value={manualRechargeAmount}
-            onChange={(e) => setManualRechargeAmount(e.target.value)}
-            style={styles.inputField} 
-          />
-        </div>
-        <button type="submit" style={{ ...styles.fullWidthButton, backgroundColor: '#0ea5e9' }}>
-          ➕ ACREDITAR SALDO AL USUARIO
-        </button>
-      </form>
-    </div>
-
-    <div style={{ ...styles.panelBox, border: '1px solid rgba(234, 179, 8, 0.4)' }}>
-      <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#facc15' }}>
-        <ShieldAlert size={16} /> Solicitudes de Retiro (Admin)
-      </h3>
-
-      {adminWithdrawals.length === 0 ? (
-        <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay solicitudes.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {adminWithdrawals.map((req) => (
-            <div key={req.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <div>
-                  <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{req.user} ({req.userId})</span>
-                  <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800', marginTop: '2px' }}>Monto: {req.amount} USDT</span>
-                </div>
-                <span style={{ fontSize: '10px', color: '#94a3b8' }}>{req.date}</span>
+                <form onSubmit={handleUserDepositRequest} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Monto Enviado (USDT)</label>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="Ej. 50.00" 
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      style={styles.inputField} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Hash de la Transacción (TXID)</label>
+                    <input 
+                      type="text" 
+                      placeholder="Pega aquí el TXID de tu transferencia" 
+                      value={depositTxHash}
+                      onChange={(e) => setDepositTxHash(e.target.value)}
+                      style={styles.inputField} 
+                    />
+                  </div>
+                  <button type="submit" style={{ ...styles.fullWidthButton, backgroundColor: '#10b981' }}>
+                    📤 Reportar Depósito
+                  </button>
+                </form>
               </div>
 
-              <div style={{ fontSize: '10px', color: '#94a3b8', wordBreak: 'break-all', marginBottom: '10px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '6px' }}>
-                <strong>TRC20:</strong> {req.wallet}
+              <div style={styles.panelBox}>
+                <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Wallet size={18} color="#34d399" /> Retirar Fondos (USDT)
+                </h3>
+                <p style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '12px' }}>Mínimo de retiro: 15 USDT (Red TRC20).</p>
+                
+                {withdrawStatus && (
+                  <div style={{ padding: '10px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', marginBottom: '12px', background: withdrawStatus.error ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', color: withdrawStatus.error ? '#f87171' : '#34d399', border: '1px solid currentColor' }}>
+                    {withdrawStatus.msg}
+                  </div>
+                )}
+
+                <form onSubmit={handleWithdraw} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Monto a Retirar (USDT)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      placeholder="15.00" 
+                      value={withdrawAmount}
+                      onChange={(e) => setWithdrawAmount(e.target.value)}
+                      style={styles.inputField} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Dirección Billetera (TRC20)</label>
+                    <input 
+                      type="text" 
+                      placeholder="T..." 
+                      value={withdrawWallet}
+                      onChange={(e) => setWithdrawWallet(e.target.value)}
+                      style={styles.inputField} 
+                    />
+                  </div>
+                  <button type="submit" style={styles.fullWidthButton}>
+                    🚀 SOLICITAR RETIRO INMEDIATO
+                  </button>
+                </form>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: req.status === 'Pendiente' ? '#facc15' : req.status === 'Aprobado/Pagado' ? '#34d399' : '#f87171' }}>
-                  Estado: {req.status}
-                </span>
-
-                {req.status === 'Pendiente' && (
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button 
-                      onClick={() => handleApproveWithdrawal(req.id)}
-                      style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                    >
-                      <Check size={12} /> Pagar / Aprobar
-                    </button>
-                    <button 
-                      onClick={() => handleDenyWithdrawal(req.id)}
-                      style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                    >
-                      <X size={12} /> Denegar
-                    </button>
+              <div style={styles.panelBox}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#38bdf8' }}>
+                  <History size={16} /> Historial de Retiros
+                </h3>
+                {withdrawalHistory.length === 0 ? (
+                  <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay retiros registrados aún.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {withdrawalHistory.map((item) => {
+                      const isSuccess = item.status === 'Exitoso';
+                      return (
+                        <div key={item.id} style={styles.historyCard}>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff', display: 'block' }}>
+                              {item.amount} USDT
+                            </span>
+                            <span style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                              <Clock size={10} /> {item.date} - {item.time}
+                            </span>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: '4px', 
+                              fontSize: '11px', 
+                              fontWeight: '800', 
+                              padding: '3px 8px', 
+                              borderRadius: '8px',
+                              backgroundColor: isSuccess ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                              color: isSuccess ? '#34d399' : '#facc15',
+                              border: `1px solid ${isSuccess ? 'rgba(52, 211, 153, 0.3)' : 'rgba(250, 204, 21, 0.3)'}`
+                            }}>
+                              {isSuccess ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                              {item.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          )}
+
+          {activeTab === 'company' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={styles.panelBox}>
+                <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <Globe size={18} color="#38bdf8" /> AuraMining LTD - Sede Global
+                </h3>
+                <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '14px' }}>
+                  Empresa líder en minería de criptomonedas impulsada por algoritmos de Inteligencia Artificial.
+                </p>
+                <div style={{ background: '#020617', padding: '14px', borderRadius: '12px', fontSize: '11px', color: '#cbd5e1', lineHeight: '1.6', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p>🏢 <strong>Razón Social:</strong> AuraMining Technologies LTD</p>
+                  <p style={{ marginTop: '4px' }}>🏛️ <strong>Registro Mercantil UK:</strong> #14892341</p>
+                  <p style={{ marginTop: '4px' }}>📍 <strong>Dirección:</strong> London, UK</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'admin' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* SOLO SE MUESTRA EL PANEL DE ADMIN SI ES EL DUEÑO (@BreakThebank66 / 6062598843) */}
+              {isOwner ? (
+                <>
+                  <div style={{ ...styles.panelBox, border: '1px solid rgba(56, 189, 248, 0.4)' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#38bdf8' }}>
+                      <PlusCircle size={16} /> Recarga Manual de Saldo (Dueño)
+                    </h3>
+                    
+                    {/* NOTIFICACIÓN VERDE DE RECARGA (Dura 8 segundos) */}
+                    {adminMsg && (
+                      <div style={{ 
+                        padding: '10px 12px', 
+                        borderRadius: '8px', 
+                        fontSize: '11px', 
+                        fontWeight: 'bold', 
+                        marginBottom: '10px', 
+                        background: adminMsg.error ? 'rgba(239,68,68,0.2)' : 'rgba(16, 185, 129, 0.25)', 
+                        color: adminMsg.error ? '#f87171' : '#34d399',
+                        border: `1px solid ${adminMsg.error ? 'rgba(239,68,68,0.4)' : 'rgba(16, 185, 129, 0.5)'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        {!adminMsg.error && <CheckCircle2 size={16} color="#34d399" />}
+                        {adminMsg.msg}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleManualRechargeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>ID o Username</label>
+                        <input 
+                          type="text" 
+                          placeholder="@usuario" 
+                          value={manualRechargeUser}
+                          onChange={(e) => setManualRechargeUser(e.target.value)}
+                          style={styles.inputField} 
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Monto a Sumar</label>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          placeholder="50.00" 
+                          value={manualRechargeAmount}
+                          onChange={(e) => setManualRechargeAmount(e.target.value)}
+                          style={styles.inputField} 
+                        />
+                      </div>
+                      <button type="submit" style={{ ...styles.fullWidthButton, backgroundColor: '#0ea5e9' }}>
+                        ➕ ACREDITAR SALDO
+                      </button>
+                    </form>
+                  </div>
+
+                  <div style={{ ...styles.panelBox, border: '1px solid rgba(16, 185, 129, 0.4)' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#34d399' }}>
+                      <Wallet size={16} /> Solicitudes de Depósito (Admin)
+                    </h3>
+                    {adminDeposits.length === 0 ? (
+                      <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay depósitos pendientes.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {adminDeposits.map((dep) => (
+                          <div key={dep.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                              <div>
+                                <span style={{ fontSize: '12px', fontWeight: '900', color: '#ffffff' }}>{dep.user}</span>
+                                <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800' }}>+{dep.amount} USDT</span>
+                              </div>
+                              <span style={{ fontSize: '10px', color: '#94a3b8' }}>{dep.date}</span>
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8', wordBreak: 'break-all', marginBottom: '8px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '6px' }}>
+                              <strong>TXID:</strong> {dep.txHash}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: dep.status === 'Pendiente' ? '#facc15' : dep.status === 'Aprobado' ? '#34d399' : '#f87171' }}>
+                                {dep.status}
+                              </span>
+                              {dep.status === 'Pendiente' && (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button onClick={() => handleApproveDeposit(dep.id)} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                    Aprobar
+                                  </button>
+                                  <button onClick={() => handleDenyDeposit(dep.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '5px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                    Rechazar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ ...styles.panelBox, border: '1px solid rgba(234, 179, 8, 0.4)' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#facc15' }}>
+                      <ShieldAlert size={16} /> Solicitudes de Retiro (Admin)
+                    </h3>
+                    {adminWithdrawals.length === 0 ? (
+                      <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay solicitudes.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {adminWithdrawals.map((req) => (
+                          <div key={req.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                              <div>
+                                <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{req.user} ({req.userId})</span>
+                                <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800', marginTop: '2px' }}>Monto: {req.amount} USDT</span>
+                              </div>
+                              <span style={{ fontSize: '10px', color: '#94a3b8' }}>{req.date}</span>
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8', wordBreak: 'break-all', marginBottom: '10px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '6px' }}>
+                              <strong>TRC20:</strong> {req.wallet}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: req.status === 'Pendiente' ? '#facc15' : req.status === 'Aprobado/Pagado' ? '#34d399' : '#f87171' }}>
+                                Estado: {req.status}
+                              </span>
+                              {req.status === 'Pendiente' && (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button onClick={() => handleApproveWithdrawal(req.id)} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                    <Check size={12} /> Pagar
+                                  </button>
+                                  <button onClick={() => handleDenyWithdrawal(req.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                    <X size={12} /> Denegar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div style={{ ...styles.panelBox, textAlign: 'center', padding: '30px' }}>
+                  <ShieldAlert size={32} color="#f87171" style={{ margin: '0 auto 10px auto' }} />
+                  <h3 style={{ fontSize: '14px', fontWeight: '900', color: '#f87171' }}>Acceso Restringido</h3>
+                  <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>Esta sección es exclusiva para el administrador general de Aura Mining.</p>
+                </div>
+              )}
+
+            </div>
+          )}
+
+        </main>
+
+        <nav style={styles.bottomNav}>
+          <button onClick={() => setActiveTab('mining')} style={{ ...styles.navButton, color: activeTab === 'mining' ? '#34d399' : '#94a3b8' }}>
+            <Cpu size={18} />
+            <span style={styles.navText}>Minería</span>
+          </button>
+          <button onClick={() => setActiveTab('team')} style={{ ...styles.navButton, color: activeTab === 'team' ? '#34d399' : '#94a3b8' }}>
+            <Users size={18} />
+            <span style={styles.navText}>Equipo</span>
+          </button>
+          <button onClick={() => setActiveTab('wallet')} style={{ ...styles.navButton, color: activeTab === 'wallet' ? '#34d399' : '#94a3b8' }}>
+            <Wallet size={18} />
+            <span style={styles.navText}>Billetera</span>
+          </button>
+          <button onClick={() => setActiveTab('company')} style={{ ...styles.navButton, color: activeTab === 'company' ? '#34d399' : '#94a3b8' }}>
+            <Globe size={18} />
+            <span style={styles.navText}>Empresa</span>
+          </button>
+          {isOwner && (
+            <button onClick={() => setActiveTab('admin')} style={{ ...styles.navButton, color: activeTab === 'admin' ? '#38bdf8' : '#94a3b8' }}>
+              <ShieldAlert size={18} />
+              <span style={styles.navText}>Admin</span>
+            </button>
+          )}
+        </nav>
+
+      </div>
     </div>
-  </div>
-)}
-
-</main>
-
-<nav style={styles.bottomNav}>
-  <button onClick={() => setActiveTab('mining')} style={{ ...styles.navButton, color: activeTab === 'mining' ? '#34d399' : '#94a3b8' }}>
-    <Cpu size={18} />
-    <span style={styles.navText}>Minería</span>
-  </button>
-  <button onClick={() => setActiveTab('team')} style={{ ...styles.navButton, color: activeTab === 'team' ? '#34d399' : '#94a3b8' }}>
-    <Users size={18} />
-    <span style={styles.navText}>Equipo</span>
-  </button>
-  <button onClick={() => setActiveTab('wallet')} style={{ ...styles.navButton, color: activeTab === 'wallet' ? '#34d399' : '#94a3b8' }}>
-    <Wallet size={18} />
-    <span style={styles.navText}>Billetera</span>
-  </button>
-  <button onClick={() => setActiveTab('company')} style={{ ...styles.navButton, color: activeTab === 'company' ? '#34d399' : '#94a3b8' }}>
-    <Globe size={18} />
-    <span style={styles.navText}>Empresa</span>
-  </button>
-  <button onClick={() => setActiveTab('admin')} style={{ ...styles.navButton, color: activeTab === 'admin' ? '#38bdf8' : '#94a3b8' }}>
-    <ShieldAlert size={18} />
-    <span style={styles.navText}>Admin</span>
-  </button>
-</nav>
-
-</div>
-</div>
-);
+  );
 }
 
 const styles = {
@@ -1182,3 +1207,4 @@ const styles = {
     fontWeight: '700',
   },
 };
+
