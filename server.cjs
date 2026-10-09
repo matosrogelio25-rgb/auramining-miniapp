@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
   activePlans: { type: Array, default: [] },
   miningEarningsHistory: { type: Array, default: [] },
   withdrawalHistory: { type: Array, default: [] },
+  depositHistory: { type: Array, default: [] },
   miningStartedAt: { type: Date, default: Date.now },
   referredBy: { type: String, default: null }
 });
@@ -137,7 +138,7 @@ app.post('/api/user/team', async (req, res) => {
 // Ruta para guardar cambios permanentemente
 app.post('/api/user/update', async (req, res) => {
   try {
-    const { telegramId, balance, activePlans, miningEarningsHistory, withdrawalHistory, miningStartedAt } = req.body;
+    const { telegramId, balance, activePlans, miningEarningsHistory, withdrawalHistory, depositHistory, miningStartedAt } = req.body;
     if (!telegramId) return res.status(400).json({ error: 'Falta el telegramId' });
 
     const updateData = {};
@@ -145,6 +146,7 @@ app.post('/api/user/update', async (req, res) => {
     if (activePlans !== undefined) updateData.activePlans = activePlans;
     if (miningEarningsHistory !== undefined) updateData.miningEarningsHistory = miningEarningsHistory;
     if (withdrawalHistory !== undefined) updateData.withdrawalHistory = withdrawalHistory;
+    if (depositHistory !== undefined) updateData.depositHistory = depositHistory;
     if (miningStartedAt !== undefined) updateData.miningStartedAt = miningStartedAt;
 
     const updatedUser = await User.findOneAndUpdate(
@@ -262,54 +264,49 @@ app.get('/api/admin/deposits', async (req, res) => {
   }
 });
 
-// Ruta para aprobar un depósito y distribuir automáticamente las comisiones multinivel HACIA ARRIBA
-app.post('/api/admin/deposit/approve', async (req, res) => {
+// Ruta para actualizar el estado de un depósito (Aprobado o Rechazado) y distribuir comisiones multinivel hacia arriba
+app.post('/api/admin/deposit/update', async (req, res) => {
   try {
-    const { depositId } = req.body;
-    const deposit = await Deposit.findById(depositId);
+    const { id, status, telegramId } = req.body;
     
-    if (!deposit || deposit.status !== 'Pendiente') {
-      return res.status(404).json({ success: false, message: 'Depósito no encontrado o ya procesado.' });
+    const updatedDeposit = await Deposit.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!updatedDeposit) {
+      return res.status(404).json({ success: false, message: 'Depósito no encontrado' });
     }
 
-    deposit.status = 'Aprobado';
-    await deposit.save();
+    const targetTelegramId = telegramId || updatedDeposit.telegramId;
 
-    const depositAmount = parseFloat(deposit.amount);
+    // Si se aprueba, se distribuyen las comisiones en cadena ascendente estricta hacia arriba (10%, 5%, 2%)
+    if (status === 'Aprobado') {
+      const depositAmount = parseFloat(updatedDeposit.amount);
 
-    // 1. Buscar al usuario que realizó el depósito para acreditarle su saldo o rastrear su línea ascendente
-    let currentUser = await User.findOne({ telegramId: deposit.telegramId });
-    
-    // Si el usuario depositante existe, opcionalmente puedes acreditarle el depósito a su propio balance si aplica, 
-    // o simplemente usar su cadena `referredBy`. Aquí recorremos la cadena hacia arriba:
-    
-    let currentUplineId = currentUser ? currentUser.referredBy : null;
+      let depositingUser = await User.findOne({ telegramId: targetTelegramId });
+      if (depositingUser && depositingUser.referredBy) {
+        // Nivel 1 (10%)
+        let level1User = await User.findOne({ telegramId: depositingUser.referredBy });
+        if (level1User) {
+          level1User.balance += depositAmount * 0.10;
+          await level1User.save();
 
-    // Nivel 1 (10%)
-    if (currentUplineId) {
-      let level1User = await User.findOne({ telegramId: currentUplineId });
-      if (level1User) {
-        const comm1 = depositAmount * 0.10;
-        level1User.balance += comm1;
-        await level1User.save();
-        
-        // Nivel 2 (5%)
-        let level2UplineId = level1User.referredBy;
-        if (level2UplineId) {
-          let level2User = await User.findOne({ telegramId: level2UplineId });
-          if (level2User) {
-            const comm2 = depositAmount * 0.05;
-            level2User.balance += comm2;
-            await level2User.save();
+          // Nivel 2 (5%)
+          if (level1User.referredBy) {
+            let level2User = await User.findOne({ telegramId: level1User.referredBy });
+            if (level2User) {
+              level2User.balance += depositAmount * 0.05;
+              await level2User.save();
 
-            // Nivel 3 (2%)
-            let level3UplineId = level2User.referredBy;
-            if (level3UplineId) {
-              let level3User = await User.findOne({ telegramId: level3UplineId });
-              if (level3User) {
-                const comm3 = depositAmount * 0.02;
-                level3User.balance += comm3;
-                await level3User.save();
+              // Nivel 3 (2%)
+              if (level2User.referredBy) {
+                let level3User = await User.findOne({ telegramId: level2User.referredBy });
+                if (level3User) {
+                  level3User.balance += depositAmount * 0.02;
+                  await level3User.save();
+                }
               }
             }
           }
@@ -317,10 +314,18 @@ app.post('/api/admin/deposit/approve', async (req, res) => {
       }
     }
 
-    res.json({ success: true, message: 'Depósito aprobado y comisiones distribuidas hacia arriba exitosamente.' });
+    // Sincronizar el historial personal del usuario si maneja depositHistory
+    if (targetTelegramId) {
+      await User.updateOne(
+        { telegramId: targetTelegramId, "depositHistory.status": "Pendiente" },
+        { $set: { "depositHistory.$.status": status } }
+      );
+    }
+
+    res.json({ success: true, updated: updatedDeposit });
   } catch (error) {
-    console.error('Error en /api/admin/deposit/approve:', error);
-    res.status(500).json({ success: false, error: 'Error al aprobar el depósito' });
+    console.error('Error en /api/admin/deposit/update:', error);
+    res.status(500).json({ success: false, error: 'Error al actualizar el depósito' });
   }
 });
 
@@ -359,4 +364,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
 });
-
