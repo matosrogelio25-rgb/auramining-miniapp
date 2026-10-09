@@ -46,11 +46,7 @@ export default function App() {
   ]);
 
   const [withdrawalHistory, setWithdrawalHistory] = useState([]);
-
-  const [adminWithdrawals, setAdminWithdrawals] = useState([
-    { id: 101, user: '@crypto_carlos', userId: '998877', amount: '30.00', wallet: 'TXYZ...abc99', date: '07 Oct - 16:20', status: 'Pendiente' },
-    { id: 102, user: '@lucia_minera', userId: '445566', amount: '15.00', wallet: 'TLMN...xyz12', date: '07 Oct - 17:05', status: 'Aprobado/Pagado' },
-  ]);
+  const [adminWithdrawals, setAdminWithdrawals] = useState([]);
 
   const [manualRechargeUser, setManualRechargeUser] = useState('');
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
@@ -83,14 +79,12 @@ export default function App() {
       setTelegramUser({ id: tId, first_name: fName, username: uName });
     }
 
-    // Soporte para pruebas directas en navegador mediante query params (ej: ?start=ref_123456)
     const urlParams = new URLSearchParams(window.location.search);
     const queryStart = urlParams.get('start');
     if (queryStart) {
       startParam = queryStart;
     }
 
-    // Extraer el ID del patrocinador si el parámetro empieza con 'ref_'
     let referredBy = null;
     if (startParam && startParam.startsWith('ref_')) {
       referredBy = startParam.replace('ref_', '');
@@ -106,7 +100,6 @@ export default function App() {
 
     const fetchUserDataFromMongo = async () => {
       try {
-        // Registrar u obtener usuario enviando el referido si existe
         const response = await fetch(`${API_URL}/api/user`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -137,7 +130,6 @@ export default function App() {
           }
         }
 
-        // Consultar estadísticas del equipo (referidos por niveles)
         const teamResponse = await fetch(`${API_URL}/api/user/team`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -146,6 +138,11 @@ export default function App() {
         const teamData = await teamResponse.json();
         if (teamResponse.ok && teamData.success && teamData.teamLevels) {
           setTeamLevels(teamData.teamLevels);
+        }
+
+        // Si es admin, cargar los retiros globales desde la base de datos
+        if (tId === ADMIN_TELEGRAM_ID) {
+          fetchAdminWithdrawals();
         }
 
       } catch (error) {
@@ -157,6 +154,24 @@ export default function App() {
 
     return () => clearInterval(timer);
   }, []);
+
+  const fetchAdminWithdrawals = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/withdrawals`);
+      const data = await res.json();
+      if (data.success && data.requests) {
+        // Mapeamos _id a id para mantener compatibilidad con la interfaz
+        const formatted = data.requests.map(req => ({
+          ...req,
+          id: req._id,
+          user: req.username ? `@${req.username}` : 'Usuario'
+        }));
+        setAdminWithdrawals(formatted);
+      }
+    } catch (err) {
+      console.error('Error al obtener retiros de admin:', err);
+    }
+  };
 
   const syncToMongo = async (newBalance, newPlans, newMining, newWithdrawals, miningStartedAt) => {
     const currentId = telegramUser?.id?.toString() || telegramIdRef.current;
@@ -278,7 +293,7 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleWithdraw = (e) => {
+  const handleWithdraw = async (e) => {
     e.preventDefault();
     const amountNum = parseFloat(withdrawAmount);
     if (isNaN(amountNum) || amountNum < 15) {
@@ -290,30 +305,18 @@ export default function App() {
       return;
     }
 
-    const uniqueId = Date.now();
     const formattedDateStr = `${currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} - ${currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
 
     const newRecord = {
-      id: uniqueId,
+      id: Date.now(),
       amount: amountNum.toFixed(2),
       date: currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
       time: currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
       status: 'Pendiente'
     };
 
-    const newAdminRequest = {
-      id: uniqueId,
-      user: telegramUser?.username ? `@${telegramUser.username}` : (telegramUser?.first_name || 'Usuario'),
-      userId: telegramUser?.id || telegramIdRef.current,
-      amount: amountNum.toFixed(2),
-      wallet: withdrawWallet.trim(),
-      date: formattedDateStr,
-      status: 'Pendiente'
-    };
-
     const updatedWithdrawals = [newRecord, ...withdrawalHistory];
     setWithdrawalHistory(updatedWithdrawals);
-    setAdminWithdrawals(prev => [newAdminRequest, ...prev]);
 
     const newBalance = balance - amountNum;
     setBalance(newBalance);
@@ -322,20 +325,58 @@ export default function App() {
     setWithdrawWallet('');
 
     syncToMongo(newBalance, undefined, undefined, updatedWithdrawals, undefined);
+
+    // Enviar solicitud al servidor backend para que aparezca en el panel del admin
+    try {
+      await fetch(`${API_URL}/api/user/withdraw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: telegramUser?.id?.toString() || telegramIdRef.current,
+          username: telegramUser?.username || telegramUser?.first_name || 'Usuario',
+          amount: amountNum.toFixed(2),
+          wallet: withdrawWallet.trim(),
+          date: formattedDateStr
+        })
+      });
+      if (isAdmin) {
+        fetchAdminWithdrawals();
+      }
+    } catch (err) {
+      console.error('Error enviando retiro al servidor:', err);
+    }
   };
 
-  const handleApproveWithdrawal = (id) => {
-    setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado/Pagado' } : item));
-    const updated = withdrawalHistory.map(item => item.id === id ? { ...item, status: 'Exitoso' } : item);
-    setWithdrawalHistory(updated);
-    syncToMongo(undefined, undefined, undefined, updated, undefined);
+  const handleApproveWithdrawal = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/withdrawal/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'Aprobado/Pagado' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado/Pagado' } : item));
+      }
+    } catch (err) {
+      console.error('Error aprobando retiro:', err);
+    }
   };
 
-  const handleDenyWithdrawal = (id) => {
-    setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Denegado' } : item));
-    const updated = withdrawalHistory.map(item => item.id === id ? { ...item, status: 'Denegado' } : item);
-    setWithdrawalHistory(updated);
-    syncToMongo(undefined, undefined, undefined, updated, undefined);
+  const handleDenyWithdrawal = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/withdrawal/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'Denegado' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Denegado' } : item));
+      }
+    } catch (err) {
+      console.error('Error denegando retiro:', err);
+    }
   };
 
   const handleManualRechargeSubmit = async (e) => {
@@ -981,19 +1022,24 @@ export default function App() {
               </div>
 
               <div style={{ ...styles.panelBox, border: '1px solid rgba(234, 179, 8, 0.4)' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#facc15' }}>
-                  <ShieldAlert size={16} /> Solicitudes de Retiro (Admin)
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', color: '#facc15' }}>
+                    <ShieldAlert size={16} /> Solicitudes de Retiro (Admin)
+                  </h3>
+                  <button onClick={fetchAdminWithdrawals} style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#38bdf8', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    🔄 Actualizar
+                  </button>
+                </div>
 
                 {adminWithdrawals.length === 0 ? (
-                  <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay solicitudes.</p>
+                  <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay solicitudes de retiro en la base de datos.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {adminWithdrawals.map((req) => (
                       <div key={req.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                           <div>
-                            <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{req.user} ({req.userId})</span>
+                            <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{req.user} ({req.telegramId})</span>
                             <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800', marginTop: '2px' }}>Monto: {req.amount} USDT</span>
                           </div>
                           <span style={{ fontSize: '10px', color: '#94a3b8' }}>{req.date}</span>
