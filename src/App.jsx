@@ -6,14 +6,17 @@ import {
 
 const API_URL = 'http://localhost:5000'; // Ajusta esto si tu backend usa otra URL o puerto
 
+// Tu ID de Telegram como Dueño / Administrador exclusivo
+const ADMIN_TELEGRAM_ID = '6062598843';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('mining');
   const [telegramUser, setTelegramUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   
-  // Usamos una referencia para mantener el telegramId disponible de inmediato sin depender solo del state async
-  const telegramIdRef = useRef('77889944');
+  const telegramIdRef = useRef('6062598843');
   
-  const [balance, setBalance] = useState(150.00); 
+  const [balance, setBalance] = useState(0.00); 
   const [activePlans, setActivePlans] = useState([]); 
 
   const [copied, setCopied] = useState(false);
@@ -33,22 +36,17 @@ export default function App() {
 
   const [miningSecondsLeft, setMiningSecondsLeft] = useState(86400); 
   const [isMiningReady, setIsMiningReady] = useState(false);
-  const [miningEarningsHistory, setMiningEarningsHistory] = useState([
-    { id: 1, amount: '1.20', date: '06 Oct 2026', time: '14:32' },
-  ]);
+  const [miningEarningsHistory, setMiningEarningsHistory] = useState([]);
 
   const [simulatedCryptoHash, setSimulatedCryptoHash] = useState('0.000000');
 
   const [teamLevels, setTeamLevels] = useState([
-    { level: 'Nivel 1 (Directos)', activeUsers: 3, totalUsers: 5, commission: '10%', earned: '15.00' },
+    { level: 'Nivel 1 (Directos)', activeUsers: 0, totalUsers: 0, commission: '10%', earned: '0.00' },
     { level: 'Nivel 2', activeUsers: 0, totalUsers: 0, commission: '5%', earned: '0.00' },
     { level: 'Nivel 3', activeUsers: 0, totalUsers: 0, commission: '2%', earned: '0.00' },
   ]);
 
-  const [withdrawalHistory, setWithdrawalHistory] = useState([
-    { id: 1, amount: '25.00', date: '06 Oct 2026', time: '14:32', status: 'Exitoso' },
-    { id: 2, amount: '15.50', date: '04 Oct 2026', time: '09:15', status: 'Pendiente' },
-  ]);
+  const [withdrawalHistory, setWithdrawalHistory] = useState([]);
 
   const [adminWithdrawals, setAdminWithdrawals] = useState([
     { id: 101, user: '@crypto_carlos', userId: '998877', amount: '30.00', wallet: 'TXYZ...abc99', date: '07 Oct - 16:20', status: 'Pendiente' },
@@ -66,9 +64,9 @@ export default function App() {
     }, 1000);
 
     const tg = window.Telegram?.WebApp;
-    let tId = '77889944';
-    let uName = 'aura_test_user';
-    let fName = 'MinerDemo';
+    let tId = '6062598843'; // Por defecto tu ID para pruebas locales
+    let uName = 'BreakThebank66';
+    let fName = 'Jose';
 
     if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
       const tgUser = tg.initDataUnsafe.user;
@@ -81,10 +79,15 @@ export default function App() {
       setTelegramUser({ id: tId, first_name: fName, username: uName });
     }
 
-    // Guardamos en la referencia para asegurar acceso inmediato
-    telegramIdRef.value = tId;
+    telegramIdRef.current = tId;
 
-    // Cargar datos persistentes de MongoDB a través del backend
+    // Verificar si es el dueño
+    if (tId === ADMIN_TELEGRAM_ID) {
+      setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
+    }
+
     const fetchUserDataFromMongo = async () => {
       try {
         const response = await fetch(`${API_URL}/api/user`, {
@@ -109,9 +112,8 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Función clave para sincronizar y guardar permanentemente en MongoDB Atlas
   const syncToMongo = async (newBalance, newPlans, newMining, newWithdrawals) => {
-    const currentId = telegramUser?.id?.toString() || telegramIdRef.value;
+    const currentId = telegramUser?.id?.toString() || telegramIdRef.current;
     if (!currentId) return;
 
     try {
@@ -288,15 +290,45 @@ export default function App() {
     syncToMongo(undefined, undefined, undefined, updated);
   };
 
-  const handleManualRechargeSubmit = (e) => {
+  // Recarga manual conectada al backend para sumar saldo real y persistente
+  const handleManualRechargeSubmit = async (e) => {
     e.preventDefault();
     if (!manualRechargeUser || !manualRechargeAmount) {
-      setAdminMsg({ error: true, msg: '⚠️ Completa el ID y el monto.' });
+      setAdminMsg({ error: true, msg: '⚠️ Completa el ID o username y el monto.' });
       return;
     }
-    setAdminMsg({ error: false, msg: `✅ Se recargaron ${manualRechargeAmount} USDT al usuario ${manualRechargeUser} con éxito.` });
-    setManualRechargeUser('');
-    setManualRechargeAmount('');
+
+    const amountToAdd = parseFloat(manualRechargeAmount);
+    if (isNaN(amountToAdd) || amountToAdd <= 0) {
+      setAdminMsg({ error: true, msg: '⚠️ Ingresa un monto válido.' });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/recharge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUser: manualRechargeUser.trim().replace('@', ''),
+          amount: amountToAdd
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setAdminMsg({ error: false, msg: `✅ Se recargaron ${amountToAdd.toFixed(2)} USDT a ${manualRechargeUser} exitosamente.` });
+        if (manualRechargeUser.includes(telegramUser?.id?.toString()) || manualRechargeUser.includes(telegramUser?.username)) {
+          setBalance(prev => prev + amountToAdd);
+        }
+        setManualRechargeUser('');
+        setManualRechargeAmount('');
+      } else {
+        setAdminMsg({ error: true, msg: data.message || '⚠️ Error al acreditar saldo.' });
+      }
+    } catch (error) {
+      console.error('Error en recarga manual:', error);
+      setAdminMsg({ error: true, msg: '⚠️ Error de conexión con el servidor backend.' });
+    }
     setTimeout(() => setAdminMsg(null), 4000);
   };
 
@@ -801,7 +833,8 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'admin' && (
+          {/* Panel de administración renderizado únicamente si el usuario es el dueño */}
+          {activeTab === 'admin' && isAdmin && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ ...styles.panelBox, border: '1px solid rgba(56, 189, 248, 0.4)' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#38bdf8' }}>
@@ -967,10 +1000,13 @@ export default function App() {
             <Globe size={18} />
             <span style={styles.navText}>Empresa</span>
           </button>
-          <button onClick={() => setActiveTab('admin')} style={{ ...styles.navButton, color: activeTab === 'admin' ? '#38bdf8' : '#94a3b8' }}>
-            <ShieldAlert size={18} />
-            <span style={styles.navText}>Admin</span>
-          </button>
+          {/* El botón de la barra de navegación inferior solo se muestra si el usuario es el Administrador */}
+          {isAdmin && (
+            <button onClick={() => setActiveTab('admin')} style={{ ...styles.navButton, color: activeTab === 'admin' ? '#38bdf8' : '#94a3b8' }}>
+              <ShieldAlert size={18} />
+              <span style={styles.navText}>Admin</span>
+            </button>
+          )}
         </nav>
       </div>
     </div>
