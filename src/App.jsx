@@ -65,16 +65,35 @@ export default function App() {
     let tId = '6062598843'; 
     let uName = 'BreakThebank66';
     let fName = 'Jose';
+    let startParam = null;
 
-    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-      const tgUser = tg.initDataUnsafe.user;
-      tId = tgUser.id.toString();
-      uName = tgUser.username || 'Sin username';
-      fName = tgUser.first_name || 'Minero';
-      setTelegramUser(tgUser);
+    if (tg && tg.initDataUnsafe) {
+      if (tg.initDataUnsafe.user) {
+        const tgUser = tg.initDataUnsafe.user;
+        tId = tgUser.id.toString();
+        uName = tgUser.username || 'Sin username';
+        fName = tgUser.first_name || 'Minero';
+        setTelegramUser(tgUser);
+      }
+      if (tg.initDataUnsafe.start_param) {
+        startParam = tg.initDataUnsafe.start_param;
+      }
       if (tg.expand) tg.expand();
     } else {
       setTelegramUser({ id: tId, first_name: fName, username: uName });
+    }
+
+    // Soporte para pruebas directas en navegador mediante query params (ej: ?start=ref_123456)
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryStart = urlParams.get('start');
+    if (queryStart) {
+      startParam = queryStart;
+    }
+
+    // Extraer el ID del patrocinador si el parámetro empieza con 'ref_'
+    let referredBy = null;
+    if (startParam && startParam.startsWith('ref_')) {
+      referredBy = startParam.replace('ref_', '');
     }
 
     telegramIdRef.current = tId;
@@ -87,10 +106,16 @@ export default function App() {
 
     const fetchUserDataFromMongo = async () => {
       try {
+        // Registrar u obtener usuario enviando el referido si existe
         const response = await fetch(`${API_URL}/api/user`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ telegramId: tId, username: uName, firstName: fName })
+          body: JSON.stringify({ 
+            telegramId: tId, 
+            username: uName, 
+            firstName: fName,
+            referredBy: referredBy && referredBy !== tId ? referredBy : null 
+          })
         });
         const data = await response.json();
         if (response.ok && data) {
@@ -111,6 +136,18 @@ export default function App() {
             }
           }
         }
+
+        // Consultar estadísticas del equipo (referidos por niveles)
+        const teamResponse = await fetch(`${API_URL}/api/user/team`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telegramId: tId })
+        });
+        const teamData = await teamResponse.json();
+        if (teamResponse.ok && teamData.success && teamData.teamLevels) {
+          setTeamLevels(teamData.teamLevels);
+        }
+
       } catch (error) {
         console.error('Error conectando con MongoDB Atlas:', error);
       }
@@ -235,7 +272,7 @@ export default function App() {
   };
 
   const handleCopyLink = () => {
-    const refLink = `https://t.me/auraminingg_bot?start=ref_${telegramUser?.id || 'usrmine'}`;
+    const refLink = `https://t.me/auraminingg_bot?start=ref_${telegramUser?.id || telegramIdRef.current}`;
     navigator.clipboard.writeText(refLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -267,7 +304,7 @@ export default function App() {
     const newAdminRequest = {
       id: uniqueId,
       user: telegramUser?.username ? `@${telegramUser.username}` : (telegramUser?.first_name || 'Usuario'),
-      userId: telegramUser?.id || '778899',
+      userId: telegramUser?.id || telegramIdRef.current,
       amount: amountNum.toFixed(2),
       wallet: withdrawWallet.trim(),
       date: formattedDateStr,
@@ -362,7 +399,7 @@ export default function App() {
     const newDeposit = {
       id: Date.now(),
       user: telegramUser?.username ? `@${telegramUser.username}` : (telegramUser?.first_name || 'Usuario'),
-      userId: telegramUser?.id || '778899',
+      userId: telegramUser?.id || telegramIdRef.current,
       amount: amountNum.toFixed(2),
       txHash: depositTxHash.trim(),
       date: `${currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} - ${currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`,
@@ -621,7 +658,7 @@ export default function App() {
                   <input 
                     type="text" 
                     readOnly 
-                    value={`https://t.me/auraminingg_bot?start=ref_${telegramUser?.id || 'demo'}`} 
+                    value={`https://t.me/auraminingg_bot?start=ref_${telegramUser?.id || telegramIdRef.current}`} 
                     style={styles.inputField} 
                   />
                   <button onClick={handleCopyLink} style={styles.actionButton}>
