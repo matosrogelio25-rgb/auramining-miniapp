@@ -610,7 +610,7 @@ export default function App() {
                   <input 
                     type="text" 
                     readOnly 
-                    value={`https://t.me/AuraMiningBot?start=ref_${telegramUser?.id || 'demo'}`} 
+                    value={`https://t.me/auraminingg_bot?start=ref_${telegramUser?.id || 'demo'}`} 
                     style={styles.inputField} 
                   />
                   <button onClick={handleCopyLink} style={styles.actionButton}>
