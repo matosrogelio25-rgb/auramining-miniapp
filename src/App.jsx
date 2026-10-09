@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cpu, Users, ShieldCheck, Wallet, 
   Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers 
@@ -9,6 +9,9 @@ const API_URL = 'http://localhost:5000'; // Ajusta esto si tu backend usa otra U
 export default function App() {
   const [activeTab, setActiveTab] = useState('mining');
   const [telegramUser, setTelegramUser] = useState(null);
+  
+  // Usamos una referencia para mantener el telegramId disponible de inmediato sin depender solo del state async
+  const telegramIdRef = useRef('77889944');
   
   const [balance, setBalance] = useState(150.00); 
   const [activePlans, setActivePlans] = useState([]); 
@@ -78,6 +81,9 @@ export default function App() {
       setTelegramUser({ id: tId, first_name: fName, username: uName });
     }
 
+    // Guardamos en la referencia para asegurar acceso inmediato
+    telegramIdRef.value = tId;
+
     // Cargar datos persistentes de MongoDB a través del backend
     const fetchUserDataFromMongo = async () => {
       try {
@@ -105,13 +111,15 @@ export default function App() {
 
   // Función clave para sincronizar y guardar permanentemente en MongoDB Atlas
   const syncToMongo = async (newBalance, newPlans, newMining, newWithdrawals) => {
-    if (!telegramUser) return;
+    const currentId = telegramUser?.id?.toString() || telegramIdRef.value;
+    if (!currentId) return;
+
     try {
       await fetch(`${API_URL}/api/user/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          telegramId: telegramUser.id.toString(),
+          telegramId: currentId,
           balance: newBalance !== undefined ? newBalance : balance,
           activePlans: newPlans !== undefined ? newPlans : activePlans,
           miningEarningsHistory: newMining !== undefined ? newMining : miningEarningsHistory,
@@ -1231,5 +1239,3 @@ const styles = {
     fontWeight: '700',
   },
 };
-
-
