@@ -22,10 +22,23 @@ const userSchema = new mongoose.Schema({
   miningEarningsHistory: { type: Array, default: [] },
   withdrawalHistory: { type: Array, default: [] },
   miningStartedAt: { type: Date, default: Date.now },
-  referredBy: { type: String, default: null } // <-- Campo para guardar el ID del patrocinador
+  referredBy: { type: String, default: null }
 });
 
 const User = mongoose.model('User', userSchema);
+
+// Esquema global para las solicitudes de retiro de la plataforma
+const withdrawalRequestSchema = new mongoose.Schema({
+  telegramId: { type: String, required: true },
+  username: String,
+  amount: { type: Number, required: true },
+  wallet: { type: String, required: true },
+  status: { type: String, default: 'Pendiente' }, // Pendiente, Aprobado/Pagado, Denegado
+  date: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const WithdrawalRequest = mongoose.model('WithdrawalRequest', withdrawalRequestSchema);
 
 // Ruta para obtener o registrar al usuario al abrir la Mini App (con soporte de referidos)
 app.post('/api/user', async (req, res) => {
@@ -40,11 +53,10 @@ app.post('/api/user', async (req, res) => {
         username: username || 'Sin username', 
         firstName: firstName || 'Minero',
         miningStartedAt: new Date(),
-        referredBy: referredBy || null // <-- Se asigna si viene en la petición
+        referredBy: referredBy || null
       });
       await user.save();
     } else if (referredBy && !user.referredBy && user.telegramId !== referredBy) {
-      // Si el usuario ya existe pero no tenía patrocinador, se le asigna
       user.referredBy = referredBy;
       await user.save();
     }
@@ -62,24 +74,20 @@ app.post('/api/user/team', async (req, res) => {
     const { telegramId } = req.body;
     if (!telegramId) return res.status(400).json({ error: 'Falta el telegramId' });
 
-    // Buscar directos (Nivel 1)
     const level1Users = await User.find({ referredBy: telegramId.toString() });
     const level1Ids = level1Users.map(u => u.telegramId);
 
-    // Buscar Nivel 2 (referidos de los de Nivel 1)
     let level2Users = [];
     if (level1Ids.length > 0) {
       level2Users = await User.find({ referredBy: { $in: level1Ids } });
     }
     const level2Ids = level2Users.map(u => u.telegramId);
 
-    // Buscar Nivel 3 (referidos de los de Nivel 2)
     let level3Users = [];
     if (level2Ids.length > 0) {
       level3Users = await User.find({ referredBy: { $in: level2Ids } });
     }
 
-    // Calcular cuántos tienen planes activos en cada nivel
     const countActive = (usersList) => usersList.filter(u => u.activePlans && u.activePlans.length > 0).length;
 
     const teamData = [
@@ -88,7 +96,7 @@ app.post('/api/user/team', async (req, res) => {
         activeUsers: countActive(level1Users),
         totalUsers: level1Users.length,
         commission: '10%',
-        earned: '0.00' // Puedes sumar aquí las comisiones históricas si lo deseas guardar en BD
+        earned: '0.00'
       },
       {
         level: 'Nivel 2',
@@ -136,6 +144,57 @@ app.post('/api/user/update', async (req, res) => {
   } catch (error) {
     console.error('Error en /api/user/update:', error);
     res.status(500).json({ error: 'Error al actualizar' });
+  }
+});
+
+// Ruta para crear una solicitud de retiro global
+app.post('/api/user/withdraw', async (req, res) => {
+  try {
+    const { telegramId, username, amount, wallet, date } = req.body;
+    if (!telegramId || !amount || !wallet) {
+      return res.status(400).json({ success: false, message: 'Faltan datos requeridos.' });
+    }
+
+    const newRequest = new WithdrawalRequest({
+      telegramId,
+      username: username || 'Usuario',
+      amount,
+      wallet,
+      date: date || new Date().toLocaleString()
+    });
+
+    await newRequest.save();
+    res.json({ success: true, request: newRequest });
+  } catch (error) {
+    console.error('Error en /api/user/withdraw:', error);
+    res.status(500).json({ success: false, error: 'Error al registrar el retiro' });
+  }
+});
+
+// Ruta para que el administrador obtenga todas las solicitudes de retiro globales
+app.get('/api/admin/withdrawals', async (req, res) => {
+  try {
+    const requests = await WithdrawalRequest.find().sort({ createdAt: -1 });
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error('Error en /api/admin/withdrawals:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener retiros' });
+  }
+});
+
+// Ruta para actualizar el estado de un retiro (Aprobado/Pagado o Denegado) desde el admin
+app.post('/api/admin/withdrawal/update', async (req, res) => {
+  try {
+    const { id, status } = req.body;
+    const updated = await WithdrawalRequest.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+    res.json({ success: true, updated });
+  } catch (error) {
+    console.error('Error en /api/admin/withdrawal/update:', error);
+    res.status(500).json({ success: false, error: 'Error al actualizar el estado' });
   }
 });
 
