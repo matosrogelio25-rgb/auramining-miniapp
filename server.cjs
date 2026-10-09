@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
   telegramId: { type: String, required: true, unique: true },
   username: String,
   firstName: String,
-  balance: { type: Number, default: 150.00 },
+  balance: { type: Number, default: 0.00 }, // Cambiado de 150.00 a 0.00 para nuevos usuarios
   activePlans: { type: Array, default: [] },
   miningEarningsHistory: { type: Array, default: [] },
   withdrawalHistory: { type: Array, default: [] }
@@ -71,6 +71,34 @@ app.post('/api/user/update', async (req, res) => {
   } catch (error) {
     console.error('Error en /api/user/update:', error);
     res.status(500).json({ error: 'Error al actualizar' });
+  }
+});
+
+// Ruta backend para la recarga manual de saldo desde el panel de admin
+app.post('/api/admin/recharge', async (req, res) => {
+  try {
+    const { targetUser, amount } = req.body;
+    if (!targetUser || !amount) {
+      return res.status(400).json({ message: '⚠️ Faltan datos requeridos (usuario o monto).' });
+    }
+    
+    // Buscar por telegramId o username en MongoDB
+    const query = isNaN(targetUser) 
+      ? { username: targetUser.replace('@', '') } 
+      : { telegramId: targetUser };
+
+    const user = await User.findOne(query);
+    if (!user) {
+      return res.status(404).json({ message: '⚠️ Usuario no encontrado en la base de datos.' });
+    }
+
+    user.balance += parseFloat(amount);
+    await user.save();
+
+    res.json({ success: true, newBalance: user.balance });
+  } catch (err) {
+    console.error('Error en /api/admin/recharge:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
 
