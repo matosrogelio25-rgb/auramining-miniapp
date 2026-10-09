@@ -27,9 +27,8 @@ export default function App() {
   const [depositTxHash, setDepositTxHash] = useState('');
   const [depositStatus, setDepositStatus] = useState(null);
   
-  const [adminDeposits, setAdminDeposits] = useState([
-    { id: 201, user: '@pedro_crypto', userId: '112233', amount: '50.00', txHash: '0x8f9a...3e21', date: '07 Oct - 18:10', status: 'Pendiente' }
-  ]);
+  const [adminDeposits, setAdminDeposits] = useState([]);
+  const [depositHistory, setDepositHistory] = useState([]);
   
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -116,6 +115,7 @@ export default function App() {
           if (data.activePlans) setActivePlans(data.activePlans);
           if (data.miningEarningsHistory) setMiningEarningsHistory(data.miningEarningsHistory);
           if (data.withdrawalHistory) setWithdrawalHistory(data.withdrawalHistory);
+          if (data.depositHistory) setDepositHistory(data.depositHistory);
           
           if (data.miningStartedAt) {
             const elapsedSeconds = Math.floor((new Date().getTime() - new Date(data.miningStartedAt).getTime()) / 1000);
@@ -142,6 +142,7 @@ export default function App() {
 
         if (tId === ADMIN_TELEGRAM_ID) {
           fetchAdminWithdrawals();
+          fetchAdminDeposits();
         }
 
       } catch (error) {
@@ -171,7 +172,24 @@ export default function App() {
     }
   };
 
-  const syncToMongo = async (newBalance, newPlans, newMining, newWithdrawals, miningStartedAt) => {
+  const fetchAdminDeposits = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/deposits`);
+      const data = await res.json();
+      if (data.success && data.deposits) {
+        const formatted = data.deposits.map(dep => ({
+          ...dep,
+          id: dep._id,
+          user: dep.username ? `@${dep.username}` : 'Usuario'
+        }));
+        setAdminDeposits(formatted);
+      }
+    } catch (err) {
+      console.error('Error al obtener depósitos de admin:', err);
+    }
+  };
+
+  const syncToMongo = async (newBalance, newPlans, newMining, newWithdrawals, newDeposits, miningStartedAt) => {
     const currentId = telegramUser?.id?.toString() || telegramIdRef.current;
     if (!currentId) return;
 
@@ -185,6 +203,7 @@ export default function App() {
           activePlans: newPlans !== undefined ? newPlans : activePlans,
           miningEarningsHistory: newMining !== undefined ? newMining : miningEarningsHistory,
           withdrawalHistory: newWithdrawals !== undefined ? newWithdrawals : withdrawalHistory,
+          depositHistory: newDeposits !== undefined ? newDeposits : depositHistory,
           miningStartedAt: miningStartedAt !== undefined ? miningStartedAt : undefined,
         })
       });
@@ -252,7 +271,7 @@ export default function App() {
     setMiningSecondsLeft(86400);
     const newStartTime = new Date();
 
-    syncToMongo(newBalance, undefined, updatedHistory, undefined, newStartTime);
+    syncToMongo(newBalance, undefined, updatedHistory, undefined, undefined, newStartTime);
   };
 
   const plans = [
@@ -281,7 +300,7 @@ export default function App() {
     setActivePlans(updatedPlans);
     alert(`🎉 ¡Plan ${plan.name} adquirido con éxito! Se han descontado ${plan.price} USDT.`);
 
-    syncToMongo(newBalance, updatedPlans, undefined, undefined, undefined);
+    syncToMongo(newBalance, updatedPlans, undefined, undefined, undefined, undefined);
   };
 
   const handleCopyLink = () => {
@@ -322,7 +341,7 @@ export default function App() {
     setWithdrawAmount('');
     setWithdrawWallet('');
 
-    syncToMongo(newBalance, undefined, undefined, updatedWithdrawals, undefined);
+    syncToMongo(newBalance, undefined, undefined, updatedWithdrawals, undefined, undefined);
 
     try {
       await fetch(`${API_URL}/api/user/withdraw`, {
@@ -422,7 +441,7 @@ export default function App() {
     setTimeout(() => setAdminMsg(null), 4000);
   };
 
-  const handleUserDepositRequest = (e) => {
+  const handleUserDepositRequest = async (e) => {
     e.preventDefault();
     const amountNum = parseFloat(depositAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -434,52 +453,76 @@ export default function App() {
       return;
     }
 
-    const newDeposit = {
+    const formattedDateStr = `${currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} - ${currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+
+    const newDepositRecord = {
       id: Date.now(),
-      user: telegramUser?.username ? `@${telegramUser.username}` : (telegramUser?.first_name || 'Usuario'),
-      userId: telegramUser?.id || telegramIdRef.current,
       amount: amountNum.toFixed(2),
       txHash: depositTxHash.trim(),
-      date: `${currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} - ${currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`,
+      date: formattedDateStr,
       status: 'Pendiente'
     };
 
-    setAdminDeposits(prev => [newDeposit, ...prev]);
-    setDepositStatus({ error: false, msg: '✅ ¡Depósito reportado con éxito! El administrador lo validará en Binance pronto.' });
+    const updatedDeposits = [newDepositRecord, ...depositHistory];
+    setDepositHistory(updatedDeposits);
+    setDepositStatus({ error: false, msg: '✅ ¡Depósito reportado con éxito! Quedó en estado Pendiente.' });
     setDepositAmount('');
     setDepositTxHash('');
-  };
 
-  const handleApproveDeposit = (id) => {
-    const depositToApprove = adminDeposits.find(d => d.id === id);
-    if (!depositToApprove || depositToApprove.status !== 'Pendiente') return;
+    syncToMongo(undefined, undefined, undefined, undefined, updatedDeposits, undefined);
 
-    const depositAmountValue = parseFloat(depositToApprove.amount);
-    const level1Commission = depositAmountValue * 0.10;
-
-    const newBalance = balance + level1Commission;
-    setBalance(newBalance);
-
-    setTeamLevels(prevLevels => prevLevels.map((lvl, index) => {
-      if (index === 0) {
-        const currentEarned = parseFloat(lvl.earned || 0);
-        return {
-          ...lvl,
-          activeUsers: lvl.activeUsers + 1,
-          earned: (currentEarned + level1Commission).toFixed(2)
-        };
+    try {
+      await fetch(`${API_URL}/api/user/deposit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramId: telegramUser?.id?.toString() || telegramIdRef.current,
+          username: telegramUser?.username || telegramUser?.first_name || 'Usuario',
+          amount: amountNum.toFixed(2),
+          txHash: depositTxHash.trim(),
+          date: formattedDateStr
+        })
+      });
+      if (isAdmin) {
+        fetchAdminDeposits();
       }
-      return lvl;
-    }));
-
-    setAdminDeposits(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado' } : item));
-    alert(`✅ Depósito aprobado. Comisión de ${level1Commission.toFixed(2)} USDT acreditada a tu Nivel 1.`);
-
-    syncToMongo(newBalance, undefined, undefined, undefined, undefined);
+    } catch (err) {
+      console.error('Error enviando depósito al servidor:', err);
+    }
   };
 
-  const handleDenyDeposit = (id) => {
-    setAdminDeposits(prev => prev.map(item => item.id === id ? { ...item, status: 'Rechazado' } : item));
+  const handleApproveDeposit = async (id, targetTelegramId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/deposit/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'Aprobado', telegramId: targetTelegramId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAdminDeposits(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado' } : item));
+        alert('✅ Depósito aprobado correctamente y comisiones distribuidas hacia arriba.');
+        fetchAdminDeposits();
+      }
+    } catch (err) {
+      console.error('Error aprobando depósito:', err);
+    }
+  };
+
+  const handleDenyDeposit = async (id, targetTelegramId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/deposit/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'Rechazado', telegramId: targetTelegramId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAdminDeposits(prev => prev.map(item => item.id === id ? { ...item, status: 'Rechazado' } : item));
+      }
+    } catch (err) {
+      console.error('Error rechazando depósito:', err);
+    }
   };
 
   const formattedDate = currentTime.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
@@ -785,6 +828,52 @@ export default function App() {
                 </form>
               </div>
 
+              {/* HISTORIAL DE DEPÓSITOS DEL USUARIO */}
+              <div style={styles.panelBox}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#38bdf8' }}>
+                  <History size={16} /> Historial de Depósitos
+                </h3>
+                {depositHistory.length === 0 ? (
+                  <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay depósitos registrados aún.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {depositHistory.map((item) => {
+                      const isSuccess = item.status === 'Aprobado';
+                      const isDenied = item.status === 'Rechazado';
+                      return (
+                        <div key={item.id} style={styles.historyCard}>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff', display: 'block' }}>
+                              {item.amount} USDT
+                            </span>
+                            <span style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                              <Clock size={10} /> {item.date}
+                            </span>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: '4px', 
+                              fontSize: '11px', 
+                              fontWeight: '800', 
+                              padding: '3px 8px', 
+                              borderRadius: '8px',
+                              backgroundColor: isSuccess ? 'rgba(16, 185, 129, 0.15)' : isDenied ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                              color: isSuccess ? '#34d399' : isDenied ? '#f87171' : '#facc15',
+                              border: `1px solid ${isSuccess ? 'rgba(52, 211, 153, 0.3)' : isDenied ? 'rgba(239, 68, 68, 0.3)' : 'rgba(250, 204, 21, 0.3)'}`
+                            }}>
+                              {isSuccess ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                              {item.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div style={styles.panelBox}>
                 <h3 style={{ fontSize: '15px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                   <Wallet size={18} color="#34d399" /> Retirar Fondos (USDT)
@@ -968,20 +1057,26 @@ export default function App() {
                 </form>
               </div>
 
+              {/* DEPÓSITOS DE ADMIN CON SCROLL VERTICAL */}
               <div style={{ ...styles.panelBox, border: '1px solid rgba(52, 211, 153, 0.4)' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#34d399' }}>
-                  <ShieldCheck size={16} /> Depósitos Reportados por Usuarios (Admin)
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399' }}>
+                    <ShieldCheck size={16} /> Depósitos Reportados por Usuarios (Admin)
+                  </h3>
+                  <button onClick={fetchAdminDeposits} style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#38bdf8', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    🔄 Actualizar
+                  </button>
+                </div>
 
                 {adminDeposits.length === 0 ? (
                   <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay depósitos pendientes.</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '320px', overflowY: 'auto', paddingRight: '4px' }}>
                     {adminDeposits.map((dep) => (
                       <div key={dep.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                           <div>
-                            <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{dep.user} ({dep.userId})</span>
+                            <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{dep.user} ({dep.telegramId})</span>
                             <span style={{ fontSize: '11px', color: '#34d399', display: 'block', fontWeight: '800', marginTop: '2px' }}>Monto: {dep.amount} USDT</span>
                           </div>
                           <span style={{ fontSize: '10px', color: '#94a3b8' }}>{dep.date}</span>
@@ -999,13 +1094,13 @@ export default function App() {
                           {dep.status === 'Pendiente' && (
                             <div style={{ display: 'flex', gap: '6px' }}>
                               <button 
-                                onClick={() => handleApproveDeposit(dep.id)}
+                                onClick={() => handleApproveDeposit(dep.id, dep.telegramId)}
                                 style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
                               >
-                                <Check size={12} /> Aprobar (+10% Red)
+                                <Check size={12} /> Aprobar (+Red)
                               </button>
                               <button 
-                                onClick={() => handleDenyDeposit(dep.id)}
+                                onClick={() => handleDenyDeposit(dep.id, dep.telegramId)}
                                 style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
                               >
                                 <X size={12} /> Rechazar
