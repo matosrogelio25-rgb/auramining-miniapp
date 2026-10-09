@@ -182,16 +182,34 @@ app.get('/api/admin/withdrawals', async (req, res) => {
   }
 });
 
-// Ruta para actualizar el estado de un retiro (Aprobado/Pagado o Denegado) desde el admin
+// Ruta para actualizar el estado de un retiro (Aprobado/Pagado o Denegado) desde el admin y sincronizar al usuario
 app.post('/api/admin/withdrawal/update', async (req, res) => {
   try {
-    const { id, status } = req.body;
-    const updated = await WithdrawalRequest.findByIdAndUpdate(
+    const { id, status, telegramId } = req.body;
+    
+    // 1. Actualizar en la colección global de solicitudes
+    const updatedRequest = await WithdrawalRequest.findByIdAndUpdate(
       id,
       { status },
       { new: true }
     );
-    res.json({ success: true, updated });
+
+    if (!updatedRequest) {
+      return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+    }
+
+    const targetTelegramId = telegramId || updatedRequest.telegramId;
+    const finalUserStatus = status === 'Aprobado/Pagado' ? 'Exitoso' : status;
+
+    // 2. Sincronizar el estado en el historial personal del usuario en MongoDB
+    if (targetTelegramId) {
+      await User.updateOne(
+        { telegramId: targetTelegramId, "withdrawalHistory.status": "Pendiente" },
+        { $set: { "withdrawalHistory.$.status": finalUserStatus } }
+      );
+    }
+
+    res.json({ success: true, updated: updatedRequest });
   } catch (error) {
     console.error('Error en /api/admin/withdrawal/update:', error);
     res.status(500).json({ success: false, error: 'Error al actualizar el estado' });
