@@ -140,7 +140,6 @@ export default function App() {
           setTeamLevels(teamData.teamLevels);
         }
 
-        // Si es admin, cargar los retiros globales desde la base de datos
         if (tId === ADMIN_TELEGRAM_ID) {
           fetchAdminWithdrawals();
         }
@@ -160,7 +159,6 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/admin/withdrawals`);
       const data = await res.json();
       if (data.success && data.requests) {
-        // Mapeamos _id a id para mantener compatibilidad con la interfaz
         const formatted = data.requests.map(req => ({
           ...req,
           id: req._id,
@@ -326,7 +324,6 @@ export default function App() {
 
     syncToMongo(newBalance, undefined, undefined, updatedWithdrawals, undefined);
 
-    // Enviar solicitud al servidor backend para que aparezca en el panel del admin
     try {
       await fetch(`${API_URL}/api/user/withdraw`, {
         method: 'POST',
@@ -347,12 +344,12 @@ export default function App() {
     }
   };
 
-  const handleApproveWithdrawal = async (id) => {
+  const handleApproveWithdrawal = async (id, targetTelegramId) => {
     try {
       const res = await fetch(`${API_URL}/api/admin/withdrawal/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'Aprobado/Pagado' })
+        body: JSON.stringify({ id, status: 'Aprobado/Pagado', telegramId: targetTelegramId })
       });
       const data = await res.json();
       if (data.success) {
@@ -363,12 +360,12 @@ export default function App() {
     }
   };
 
-  const handleDenyWithdrawal = async (id) => {
+  const handleDenyWithdrawal = async (id, targetTelegramId) => {
     try {
       const res = await fetch(`${API_URL}/api/admin/withdrawal/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'Denegado' })
+        body: JSON.stringify({ id, status: 'Denegado', telegramId: targetTelegramId })
       });
       const data = await res.json();
       if (data.success) {
@@ -837,7 +834,8 @@ export default function App() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {withdrawalHistory.map((item) => {
-                      const isSuccess = item.status === 'Exitoso';
+                      const isSuccess = item.status === 'Exitoso' || item.status === 'Aprobado/Pagado';
+                      const isDenied = item.status === 'Denegado';
                       return (
                         <div key={item.id} style={styles.historyCard}>
                           <div>
@@ -857,9 +855,9 @@ export default function App() {
                               fontWeight: '800', 
                               padding: '3px 8px', 
                               borderRadius: '8px',
-                              backgroundColor: isSuccess ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                              color: isSuccess ? '#34d399' : '#facc15',
-                              border: `1px solid ${isSuccess ? 'rgba(52, 211, 153, 0.3)' : 'rgba(250, 204, 21, 0.3)'}`
+                              backgroundColor: isSuccess ? 'rgba(16, 185, 129, 0.15)' : isDenied ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                              color: isSuccess ? '#34d399' : isDenied ? '#f87171' : '#facc15',
+                              border: `1px solid ${isSuccess ? 'rgba(52, 211, 153, 0.3)' : isDenied ? 'rgba(239, 68, 68, 0.3)' : 'rgba(250, 204, 21, 0.3)'}`
                             }}>
                               {isSuccess ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
                               {item.status}
@@ -1021,6 +1019,7 @@ export default function App() {
                 )}
               </div>
 
+              {/* SECCIÓN DE RETIROS DE ADMIN CON SCROLL VERTICAL */}
               <div style={{ ...styles.panelBox, border: '1px solid rgba(234, 179, 8, 0.4)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', color: '#facc15' }}>
@@ -1034,7 +1033,7 @@ export default function App() {
                 {adminWithdrawals.length === 0 ? (
                   <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No hay solicitudes de retiro en la base de datos.</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '320px', overflowY: 'auto', paddingRight: '4px' }}>
                     {adminWithdrawals.map((req) => (
                       <div key={req.id} style={{ backgroundColor: '#020617', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
@@ -1057,13 +1056,13 @@ export default function App() {
                           {req.status === 'Pendiente' && (
                             <div style={{ display: 'flex', gap: '6px' }}>
                               <button 
-                                onClick={() => handleApproveWithdrawal(req.id)}
+                                onClick={() => handleApproveWithdrawal(req.id, req.telegramId)}
                                 style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
                               >
                                 <Check size={12} /> Pagar / Aprobar
                               </button>
                               <button 
-                                onClick={() => handleDenyWithdrawal(req.id)}
+                                onClick={() => handleDenyWithdrawal(req.id, req.telegramId)}
                                 style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
                               >
                                 <X size={12} /> Denegar
@@ -1367,6 +1366,6 @@ const styles = {
     cursor: 'pointer',
   },
   navText: {
-    fontSize: '9px',       fontWeight: '700',
+    fontSize: '9px', fontWeight: '700',
   },
 };
