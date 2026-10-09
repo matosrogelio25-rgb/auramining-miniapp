@@ -20,7 +20,8 @@ const userSchema = new mongoose.Schema({
   balance: { type: Number, default: 0.00 },
   activePlans: { type: Array, default: [] },
   miningEarningsHistory: { type: Array, default: [] },
-  withdrawalHistory: { type: Array, default: [] }
+  withdrawalHistory: { type: Array, default: [] },
+  miningStartedAt: { type: Date, default: Date.now }
 });
 
 const User = mongoose.model('User', userSchema);
@@ -36,7 +37,8 @@ app.post('/api/user', async (req, res) => {
       user = new User({ 
         telegramId, 
         username: username || 'Sin username', 
-        firstName: firstName || 'Minero' 
+        firstName: firstName || 'Minero',
+        miningStartedAt: new Date()
       });
       await user.save();
     }
@@ -50,7 +52,7 @@ app.post('/api/user', async (req, res) => {
 // Ruta para guardar cambios permanentemente
 app.post('/api/user/update', async (req, res) => {
   try {
-    const { telegramId, balance, activePlans, miningEarningsHistory, withdrawalHistory } = req.body;
+    const { telegramId, balance, activePlans, miningEarningsHistory, withdrawalHistory, miningStartedAt } = req.body;
     if (!telegramId) return res.status(400).json({ error: 'Falta el telegramId' });
 
     const updateData = {};
@@ -58,6 +60,7 @@ app.post('/api/user/update', async (req, res) => {
     if (activePlans !== undefined) updateData.activePlans = activePlans;
     if (miningEarningsHistory !== undefined) updateData.miningEarningsHistory = miningEarningsHistory;
     if (withdrawalHistory !== undefined) updateData.withdrawalHistory = withdrawalHistory;
+    if (miningStartedAt !== undefined) updateData.miningStartedAt = miningStartedAt;
 
     const updatedUser = await User.findOneAndUpdate(
       { telegramId },
@@ -80,10 +83,8 @@ app.post('/api/admin/recharge', async (req, res) => {
       return res.status(400).json({ success: false, message: '⚠️ Faltan datos requeridos.' });
     }
     
-    // Limpiamos la cadena de búsqueda eliminando espacios y la arroba si la hubiera
     const cleanQuery = targetUser.toString().trim().replace('@', '');
 
-    // Buscamos si coincide con el telegramId o con el username (ignorando mayúsculas/minúsculas)
     let user = await User.findOne({
       $or: [
         { telegramId: cleanQuery },
