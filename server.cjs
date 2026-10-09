@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const MONGO_URI = 'mongodb+srv://matosrogelio25_db_user:0X2FiEQcab5KpJSz@cluster0.8kxvvf6.mongodb.net/auramining?appName=Cluster0';
+const MONGO_URI = "mongodb+srv://adminaura:aura2026@cluster0.8kxvvf6.mongodb.net/auramining?retryWrites=true&w=majority&authSource=admin&appName=Cluster0";
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ ¡Conectado a MongoDB Atlas exitosamente!'))
