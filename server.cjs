@@ -7,7 +7,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Se corrigió agregando el operador || para usar el respaldo si process.env.MONGO_URI no está definido
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://saucebtb:saucebtb1/?appName=Cluster0';
 
 mongoose.connect(MONGO_URI)
@@ -18,7 +17,7 @@ const userSchema = new mongoose.Schema({
   telegramId: { type: String, required: true, unique: true },
   username: String,
   firstName: String,
-  balance: { type: Number, default: 0.00 }, // Cambiado de 150.00 a 0.00 para nuevos usuarios
+  balance: { type: Number, default: 0.00 },
   activePlans: { type: Array, default: [] },
   miningEarningsHistory: { type: Array, default: [] },
   withdrawalHistory: { type: Array, default: [] }
@@ -26,6 +25,7 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Ruta para obtener o registrar al usuario al abrir la Mini App
 app.post('/api/user', async (req, res) => {
   try {
     const { telegramId, username, firstName } = req.body;
@@ -33,7 +33,6 @@ app.post('/api/user', async (req, res) => {
     
     let user = await User.findOne({ telegramId });
     if (!user) {
-      // Se agregaron los operadores || correctamente para los valores por defecto
       user = new User({ 
         telegramId, 
         username: username || 'Sin username', 
@@ -48,19 +47,18 @@ app.post('/api/user', async (req, res) => {
   }
 });
 
+// Ruta para guardar cambios permanentemente
 app.post('/api/user/update', async (req, res) => {
   try {
     const { telegramId, balance, activePlans, miningEarningsHistory, withdrawalHistory } = req.body;
     if (!telegramId) return res.status(400).json({ error: 'Falta el telegramId' });
 
-    // Construimos dinámicamente el objeto de actualización para no sobreescribir con undefined
     const updateData = {};
     if (balance !== undefined) updateData.balance = balance;
     if (activePlans !== undefined) updateData.activePlans = activePlans;
     if (miningEarningsHistory !== undefined) updateData.miningEarningsHistory = miningEarningsHistory;
     if (withdrawalHistory !== undefined) updateData.withdrawalHistory = withdrawalHistory;
 
-    // Usamos upsert: true para que si el usuario no existe por cualquier motivo, se cree automáticamente
     const updatedUser = await User.findOneAndUpdate(
       { telegramId },
       { $set: updateData },
@@ -74,31 +72,36 @@ app.post('/api/user/update', async (req, res) => {
   }
 });
 
-// Ruta backend para la recarga manual de saldo desde el panel de admin
+// Ruta backend corregida para la recarga manual de saldo desde el panel de admin
 app.post('/api/admin/recharge', async (req, res) => {
   try {
     const { targetUser, amount } = req.body;
     if (!targetUser || !amount) {
-      return res.status(400).json({ message: '⚠️ Faltan datos requeridos (usuario o monto).' });
+      return res.status(400).json({ success: false, message: '⚠️ Faltan datos requeridos.' });
     }
     
-    // Buscar por telegramId o username en MongoDB
-    const query = isNaN(targetUser) 
-      ? { username: targetUser.replace('@', '') } 
-      : { telegramId: targetUser };
+    // Limpiamos la cadena de búsqueda eliminando espacios y la arroba si la hubiera
+    const cleanQuery = targetUser.toString().trim().replace('@', '');
 
-    const user = await User.findOne(query);
+    // Buscamos si coincide con el telegramId o con el username (ignorando mayúsculas/minúsculas)
+    let user = await User.findOne({
+      $or: [
+        { telegramId: cleanQuery },
+        { username: { $regex: new RegExp(`^${cleanQuery}$`, 'i') } }
+      ]
+    });
+
     if (!user) {
-      return res.status(404).json({ message: '⚠️ Usuario no encontrado en la base de datos.' });
+      return res.status(404).json({ success: false, message: '⚠️ Usuario no encontrado en la base de datos.' });
     }
 
     user.balance += parseFloat(amount);
     await user.save();
 
-    res.json({ success: true, newBalance: user.balance });
+    return res.json({ success: true, newBalance: user.balance });
   } catch (err) {
     console.error('Error en /api/admin/recharge:', err);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
 
