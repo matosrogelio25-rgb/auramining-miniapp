@@ -64,7 +64,7 @@ export default function App() {
     }, 1000);
 
     const tg = window.Telegram?.WebApp;
-    let tId = '6062598843'; // Por defecto tu ID para pruebas locales
+    let tId = '6062598843'; // Respaldo local para pruebas
     let uName = 'BreakThebank66';
     let fName = 'Jose';
 
@@ -81,7 +81,7 @@ export default function App() {
 
     telegramIdRef.current = tId;
 
-    // Verificar si es el dueño
+    // Verificar si es el dueño para mostrar el panel de Admin
     if (tId === ADMIN_TELEGRAM_ID) {
       setIsAdmin(true);
     } else {
@@ -290,7 +290,7 @@ export default function App() {
     syncToMongo(undefined, undefined, undefined, updated);
   };
 
-  // Recarga manual conectada al backend para sumar saldo real y persistente
+  // Función corregida para recarga manual conectada al backend
   const handleManualRechargeSubmit = async (e) => {
     e.preventDefault();
     if (!manualRechargeUser || !manualRechargeAmount) {
@@ -304,22 +304,28 @@ export default function App() {
       return;
     }
 
+    const cleanTarget = manualRechargeUser.trim().replace('@', '');
+
     try {
       const response = await fetch(`${API_URL}/api/admin/recharge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          targetUser: manualRechargeUser.trim().replace('@', ''),
+          targetUser: cleanTarget,
           amount: amountToAdd
         })
       });
 
       const data = await response.json();
-      if (response.ok) {
-        setAdminMsg({ error: false, msg: `✅ Se recargaron ${amountToAdd.toFixed(2)} USDT a ${manualRechargeUser} exitosamente.` });
-        if (manualRechargeUser.includes(telegramUser?.id?.toString()) || manualRechargeUser.includes(telegramUser?.username)) {
-          setBalance(prev => prev + amountToAdd);
+      
+      if (response.ok && data.success) {
+        setAdminMsg({ error: false, msg: `✅ Se recargaron ${amountToAdd.toFixed(2)} USDT correctamente.` });
+        
+        // Si te recargaste a ti mismo, actualiza el saldo en pantalla
+        if (cleanTarget === telegramUser?.username || cleanTarget === telegramUser?.id?.toString()) {
+          setBalance(data.newBalance);
         }
+        
         setManualRechargeUser('');
         setManualRechargeAmount('');
       } else {
@@ -833,7 +839,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Panel de administración renderizado únicamente si el usuario es el dueño */}
           {activeTab === 'admin' && isAdmin && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ ...styles.panelBox, border: '1px solid rgba(56, 189, 248, 0.4)' }}>
@@ -1000,7 +1005,6 @@ export default function App() {
             <Globe size={18} />
             <span style={styles.navText}>Empresa</span>
           </button>
-          {/* El botón de la barra de navegación inferior solo se muestra si el usuario es el Administrador */}
           {isAdmin && (
             <button onClick={() => setActiveTab('admin')} style={{ ...styles.navButton, color: activeTab === 'admin' ? '#38bdf8' : '#94a3b8' }}>
               <ShieldAlert size={18} />
@@ -1275,3 +1279,4 @@ const styles = {
     fontWeight: '700',
   },
 };
+
