@@ -4,7 +4,7 @@ import {
   Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers 
 } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000'; // Ajusta esto si tu backend usa otra URL o puerto
+const API_URL = process.env.REACT_APP_API_URL || 'https://auramining-miniapp.onrender.com'; // Enlace directo a tu backend en Render[span_1](start_span)[span_1](end_span)
 
 // Tu ID de Telegram como Dueño / Administrador exclusivo
 const ADMIN_TELEGRAM_ID = '6062598843';
@@ -290,7 +290,6 @@ export default function App() {
     syncToMongo(undefined, undefined, undefined, updated);
   };
 
-  // Función corregida para recarga manual conectada al backend
   const handleManualRechargeSubmit = async (e) => {
     e.preventDefault();
     if (!manualRechargeUser || !manualRechargeAmount) {
@@ -321,7 +320,6 @@ export default function App() {
       if (response.ok && data.success) {
         setAdminMsg({ error: false, msg: `✅ Se recargaron ${amountToAdd.toFixed(2)} USDT correctamente.` });
         
-        // Si te recargaste a ti mismo, actualiza el saldo en pantalla
         if (cleanTarget === telegramUser?.username || cleanTarget === telegramUser?.id?.toString()) {
           setBalance(data.newBalance);
         }
@@ -1279,4 +1277,3 @@ const styles = {
     fontWeight: '700',
   },
 };
-
