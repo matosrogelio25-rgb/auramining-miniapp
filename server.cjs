@@ -7,6 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Se corrigió agregando el operador || para usar el respaldo si process.env.MONGO_URI no está definido
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://saucebtb:saucebtb1/?appName=Cluster0';
 
 mongoose.connect(MONGO_URI)
@@ -29,13 +30,20 @@ app.post('/api/user', async (req, res) => {
   try {
     const { telegramId, username, firstName } = req.body;
     if (!telegramId) return res.status(400).json({ error: 'Falta el telegramId' });
+    
     let user = await User.findOne({ telegramId });
     if (!user) {
-      user = new User({ telegramId, username: username || 'Sin username', firstName: firstName || 'Minero' });
+      // Se agregaron los operadores || correctamente para los valores por defecto
+      user = new User({ 
+        telegramId, 
+        username: username || 'Sin username', 
+        firstName: firstName || 'Minero' 
+      });
       await user.save();
     }
     res.json(user);
   } catch (error) {
+    console.error('Error en /api/user:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
@@ -43,14 +51,25 @@ app.post('/api/user', async (req, res) => {
 app.post('/api/user/update', async (req, res) => {
   try {
     const { telegramId, balance, activePlans, miningEarningsHistory, withdrawalHistory } = req.body;
+    if (!telegramId) return res.status(400).json({ error: 'Falta el telegramId' });
+
+    // Construimos dinámicamente el objeto de actualización para no sobreescribir con undefined
+    const updateData = {};
+    if (balance !== undefined) updateData.balance = balance;
+    if (activePlans !== undefined) updateData.activePlans = activePlans;
+    if (miningEarningsHistory !== undefined) updateData.miningEarningsHistory = miningEarningsHistory;
+    if (withdrawalHistory !== undefined) updateData.withdrawalHistory = withdrawalHistory;
+
+    // Usamos upsert: true para que si el usuario no existe por cualquier motivo, se cree automáticamente
     const updatedUser = await User.findOneAndUpdate(
       { telegramId },
-      { balance, activePlans, miningEarningsHistory, withdrawalHistory },
-      { new: true }
+      { $set: updateData },
+      { new: true, upsert: true }
     );
-    if (!updatedUser) return res.status(404).json({ error: 'Usuario no encontrado' });
+
     res.json(updatedUser);
   } catch (error) {
+    console.error('Error en /api/user/update:', error);
     res.status(500).json({ error: 'Error al actualizar' });
   }
 });
