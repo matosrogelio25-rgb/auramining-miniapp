@@ -4,9 +4,8 @@ import {
   Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers 
 } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://auramining-miniapp.onrender.com'; // Enlace directo a tu backend en Render[span_1](start_span)[span_1](end_span)
+const API_URL = process.env.REACT_APP_API_URL || 'https://auramining-miniapp.onrender.com';
 
-// Tu ID de Telegram como Dueño / Administrador exclusivo
 const ADMIN_TELEGRAM_ID = '6062598843';
 
 export default function App() {
@@ -57,14 +56,13 @@ export default function App() {
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
   const [adminMsg, setAdminMsg] = useState(null);
 
-  // Inicializar Telegram WebApp y Cargar Datos desde MongoDB Atlas
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
 
     const tg = window.Telegram?.WebApp;
-    let tId = '6062598843'; // Respaldo local para pruebas
+    let tId = '6062598843'; 
     let uName = 'BreakThebank66';
     let fName = 'Jose';
 
@@ -81,7 +79,6 @@ export default function App() {
 
     telegramIdRef.current = tId;
 
-    // Verificar si es el dueño para mostrar el panel de Admin
     if (tId === ADMIN_TELEGRAM_ID) {
       setIsAdmin(true);
     } else {
@@ -101,6 +98,18 @@ export default function App() {
           if (data.activePlans) setActivePlans(data.activePlans);
           if (data.miningEarningsHistory) setMiningEarningsHistory(data.miningEarningsHistory);
           if (data.withdrawalHistory) setWithdrawalHistory(data.withdrawalHistory);
+          
+          if (data.miningStartedAt) {
+            const elapsedSeconds = Math.floor((new Date().getTime() - new Date(data.miningStartedAt).getTime()) / 1000);
+            const remaining = 86400 - elapsedSeconds;
+            if (remaining <= 0) {
+              setIsMiningReady(true);
+              setMiningSecondsLeft(0);
+            } else {
+              setMiningSecondsLeft(remaining);
+              setIsMiningReady(false);
+            }
+          }
         }
       } catch (error) {
         console.error('Error conectando con MongoDB Atlas:', error);
@@ -112,7 +121,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const syncToMongo = async (newBalance, newPlans, newMining, newWithdrawals) => {
+  const syncToMongo = async (newBalance, newPlans, newMining, newWithdrawals, miningStartedAt) => {
     const currentId = telegramUser?.id?.toString() || telegramIdRef.current;
     if (!currentId) return;
 
@@ -126,6 +135,7 @@ export default function App() {
           activePlans: newPlans !== undefined ? newPlans : activePlans,
           miningEarningsHistory: newMining !== undefined ? newMining : miningEarningsHistory,
           withdrawalHistory: newWithdrawals !== undefined ? newWithdrawals : withdrawalHistory,
+          miningStartedAt: miningStartedAt !== undefined ? miningStartedAt : undefined,
         })
       });
     } catch (error) {
@@ -190,8 +200,9 @@ export default function App() {
 
     setIsMiningReady(false);
     setMiningSecondsLeft(86400);
+    const newStartTime = new Date();
 
-    syncToMongo(newBalance, undefined, updatedHistory, undefined);
+    syncToMongo(newBalance, undefined, updatedHistory, undefined, newStartTime);
   };
 
   const plans = [
@@ -220,11 +231,11 @@ export default function App() {
     setActivePlans(updatedPlans);
     alert(`🎉 ¡Plan ${plan.name} adquirido con éxito! Se han descontado ${plan.price} USDT.`);
 
-    syncToMongo(newBalance, updatedPlans, undefined, undefined);
+    syncToMongo(newBalance, updatedPlans, undefined, undefined, undefined);
   };
 
   const handleCopyLink = () => {
-    const refLink = `https://t.me/AuraMiningBot?start=ref_${telegramUser?.id || 'usrmine'}`;
+    const refLink = `https://t.me/auraminingg_bot?start=ref_${telegramUser?.id || 'usrmine'}`;
     navigator.clipboard.writeText(refLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -273,21 +284,21 @@ export default function App() {
     setWithdrawAmount('');
     setWithdrawWallet('');
 
-    syncToMongo(newBalance, undefined, undefined, updatedWithdrawals);
+    syncToMongo(newBalance, undefined, undefined, updatedWithdrawals, undefined);
   };
 
   const handleApproveWithdrawal = (id) => {
     setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado/Pagado' } : item));
     const updated = withdrawalHistory.map(item => item.id === id ? { ...item, status: 'Exitoso' } : item);
     setWithdrawalHistory(updated);
-    syncToMongo(undefined, undefined, undefined, updated);
+    syncToMongo(undefined, undefined, undefined, updated, undefined);
   };
 
   const handleDenyWithdrawal = (id) => {
     setAdminWithdrawals(prev => prev.map(item => item.id === id ? { ...item, status: 'Denegado' } : item));
     const updated = withdrawalHistory.map(item => item.id === id ? { ...item, status: 'Denegado' } : item);
     setWithdrawalHistory(updated);
-    syncToMongo(undefined, undefined, undefined, updated);
+    syncToMongo(undefined, undefined, undefined, updated, undefined);
   };
 
   const handleManualRechargeSubmit = async (e) => {
@@ -389,7 +400,7 @@ export default function App() {
     setAdminDeposits(prev => prev.map(item => item.id === id ? { ...item, status: 'Aprobado' } : item));
     alert(`✅ Depósito aprobado. Comisión de ${level1Commission.toFixed(2)} USDT acreditada a tu Nivel 1.`);
 
-    syncToMongo(newBalance, undefined, undefined, undefined);
+    syncToMongo(newBalance, undefined, undefined, undefined, undefined);
   };
 
   const handleDenyDeposit = (id) => {
@@ -1273,7 +1284,6 @@ const styles = {
     cursor: 'pointer',
   },
   navText: {
-    fontSize: '9px',
-    fontWeight: '700',
+    fontSize: '9px',       fontWeight: '700',
   },
 };
