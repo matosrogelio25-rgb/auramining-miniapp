@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cpu, Users, ShieldCheck, Wallet, 
-  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers 
+  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers, RefreshCw 
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://auramining-miniapp.onrender.com';
@@ -805,7 +805,7 @@ const translations = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('mining');
-  const [currentLang, setCurrentLang] = useState('es'); // Idioma por defecto
+  const [currentLang, setCurrentLang] = useState('es'); 
   const t = translations[currentLang] || translations.es;
 
   const [telegramUser, setTelegramUser] = useState(null);
@@ -854,48 +854,43 @@ export default function App() {
       setCurrentTime(new Date());
     }, 1000);
 
-    const tg = window.Telegram?.WebApp;
-    let tId = '6062598843'; 
-    let uName = 'BreakThebank66';
-    let fName = 'Jose';
-    let startParam = null;
+    const initAndFetchUser = async () => {
+      const tg = window.Telegram?.WebApp;
+      let tId = null;
+      let uName = 'Sin username';
+      let fName = 'Minero';
+      let startParam = null;
 
-    if (tg && tg.initDataUnsafe) {
-      if (tg.initDataUnsafe.user) {
-        const tgUser = tg.initDataUnsafe.user;
-        tId = tgUser.id.toString();
-        uName = tgUser.username || 'Sin username';
-        fName = tgUser.first_name || 'Minero';
-        setTelegramUser(tgUser);
+      if (tg) {
+        if (tg.expand) tg.expand();
+        if (tg.initDataUnsafe?.user) {
+          tId = tg.initDataUnsafe.user.id.toString();
+          uName = tg.initDataUnsafe.user.username || uName;
+          fName = tg.initDataUnsafe.user.first_name || fName;
+          setTelegramUser(tg.initDataUnsafe.user);
+        }
+        if (tg.initDataUnsafe?.start_param) {
+          startParam = tg.initDataUnsafe.start_param;
+        }
       }
-      if (tg.initDataUnsafe.start_param) {
-        startParam = tg.initDataUnsafe.start_param;
+
+      if (!tId) {
+        tId = '6062598843';
+        setTelegramUser({ id: tId, first_name: fName, username: uName });
       }
-      if (tg.expand) tg.expand();
-    } else {
-      setTelegramUser({ id: tId, first_name: fName, username: uName });
-    }
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const queryStart = urlParams.get('start');
-    if (queryStart) {
-      startParam = queryStart;
-    }
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryStart = urlParams.get('start');
+      if (queryStart) startParam = queryStart;
 
-    let referredBy = null;
-    if (startParam && startParam.startsWith('ref_')) {
-      referredBy = startParam.replace('ref_', '');
-    }
+      let referredBy = null;
+      if (startParam && startParam.startsWith('ref_')) {
+        referredBy = startParam.replace('ref_', '');
+      }
 
-    telegramIdRef.current = tId;
+      telegramIdRef.current = tId;
+      setIsAdmin(tId === ADMIN_TELEGRAM_ID);
 
-    if (tId === ADMIN_TELEGRAM_ID) {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-    }
-
-    const fetchUserDataFromMongo = async () => {
       try {
         const response = await fetch(`${API_URL}/api/user`, {
           method: 'POST',
@@ -935,7 +930,6 @@ export default function App() {
         });
         const teamData = await teamResponse.json();
         if (teamResponse.ok && teamData.success && teamData.teamLevels) {
-          // Mapeamos para preservar las claves de niveles multidioma
           const mappedTeam = teamData.teamLevels.map((lvl, idx) => ({
             ...lvl,
             levelKey: idx === 0 ? 'level1' : idx === 1 ? 'level2' : 'level3'
@@ -953,7 +947,7 @@ export default function App() {
       }
     };
 
-    fetchUserDataFromMongo();
+    initAndFetchUser();
 
     return () => clearInterval(timer);
   }, []);
@@ -1101,9 +1095,15 @@ export default function App() {
 
     const updatedPlans = [...activePlans, newActivePlan];
     setActivePlans(updatedPlans);
-    alert(`🎉 ¡Plan ${plan.name} adquirido con éxito!`);
 
-    syncToMongo(newBalance, updatedPlans, undefined, undefined, undefined, undefined);
+    // Reiniciamos el ciclo a 24 horas completas al comprar un nuevo plan
+    setIsMiningReady(false);
+    setMiningSecondsLeft(86400);
+    const newStartTime = new Date();
+
+    alert(`🎉 ¡Plan ${plan.name} adquirido con éxito! El ciclo de minería se ha actualizado.`);
+
+    syncToMongo(newBalance, updatedPlans, undefined, undefined, undefined, newStartTime);
   };
 
   const handleCopyLink = () => {
@@ -1374,7 +1374,6 @@ export default function App() {
           </div>
           
           <div style={styles.headerRight}>
-            {/* SELECTOR DE IDIOMAS CON ICONO DE MUNDO */}
             <div style={styles.langSelectorWrapper}>
               <Globe size={13} color="#38bdf8" />
               <select 
@@ -1882,8 +1881,11 @@ export default function App() {
                   <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399' }}>
                     <ShieldCheck size={16} /> {t.adminDepositsTitle}
                   </h3>
-                  <button onClick={fetchAdminDeposits} style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#38bdf8', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    🔄 {t.update}
+                  <button 
+                    onClick={fetchAdminDeposits} 
+                    style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#38bdf8', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <RefreshCw size={13} /> {t.update}
                   </button>
                 </div>
 
@@ -1938,8 +1940,11 @@ export default function App() {
                   <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', color: '#facc15' }}>
                     <ShieldAlert size={16} /> {t.adminWithdrawalsTitle}
                   </h3>
-                  <button onClick={fetchAdminWithdrawals} style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#38bdf8', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    🔄 {t.update}
+                  <button 
+                    onClick={fetchAdminWithdrawals} 
+                    style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#38bdf8', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <RefreshCw size={13} /> {t.update}
                   </button>
                 </div>
 
