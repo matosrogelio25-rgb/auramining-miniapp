@@ -54,6 +54,14 @@ const depositSchema = new mongoose.Schema({
 
 const Deposit = mongoose.model('Deposit', depositSchema);
 
+// 📢 Esquema para los Anuncios / Promociones Globales (Campanita)
+const announcementSchema = new mongoose.Schema({
+  message: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Announcement = mongoose.model('Announcement', announcementSchema);
+
 // Ruta para obtener o registrar al usuario al abrir la Mini App (con soporte de referidos)
 app.post('/api/user', async (req, res) => {
   try {
@@ -281,26 +289,22 @@ app.post('/api/admin/deposit/update', async (req, res) => {
 
     const targetTelegramId = telegramId || updatedDeposit.telegramId;
 
-    // Si se aprueba, se distribuyen las comisiones en cadena ascendente estricta hacia arriba (10%, 5%, 2%)
     if (status === 'Aprobado') {
       const depositAmount = parseFloat(updatedDeposit.amount);
 
       let depositingUser = await User.findOne({ telegramId: targetTelegramId });
       if (depositingUser && depositingUser.referredBy) {
-        // Nivel 1 (10%)
         let level1User = await User.findOne({ telegramId: depositingUser.referredBy });
         if (level1User) {
           level1User.balance += depositAmount * 0.10;
           await level1User.save();
 
-          // Nivel 2 (5%)
           if (level1User.referredBy) {
             let level2User = await User.findOne({ telegramId: level1User.referredBy });
             if (level2User) {
               level2User.balance += depositAmount * 0.05;
               await level2User.save();
 
-              // Nivel 3 (2%)
               if (level2User.referredBy) {
                 let level3User = await User.findOne({ telegramId: level2User.referredBy });
                 if (level3User) {
@@ -314,7 +318,6 @@ app.post('/api/admin/deposit/update', async (req, res) => {
       }
     }
 
-    // Sincronizar el historial personal del usuario si maneja depositHistory
     if (targetTelegramId) {
       await User.updateOne(
         { telegramId: targetTelegramId, "depositHistory.status": "Pendiente" },
@@ -357,6 +360,40 @@ app.post('/api/admin/recharge', async (req, res) => {
   } catch (err) {
     console.error('Error en /api/admin/recharge:', err);
     return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+// --- 📢 NUEVAS RUTAS PARA EL SISTEMA DE ANUNCIOS / CAMPANITA ---
+
+// 1. Guardar un nuevo anuncio/promoción masiva desde el Admin
+app.post('/api/admin/announcement', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'El mensaje es obligatorio' });
+    }
+
+    const newAnnouncement = new Announcement({
+      message: message.trim(),
+      createdAt: new Date()
+    });
+    await newAnnouncement.save();
+
+    res.json({ success: true, message: 'Anuncio publicado con éxito' });
+  } catch (error) {
+    console.error('Error al guardar anuncio:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+// 2. Obtener los anuncios para que los usuarios los lean en la campanita
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const announcements = await Announcement.find().sort({ createdAt: -1 }).limit(10);
+    res.json({ success: true, announcements });
+  } catch (error) {
+    console.error('Error al obtener anuncios:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
   }
 });
 
