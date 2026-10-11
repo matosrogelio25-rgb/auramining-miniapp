@@ -1,12 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cpu, Users, ShieldCheck, Wallet, 
-  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers, RefreshCw 
+  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers, RefreshCw, Bell 
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://auramining-miniapp.onrender.com';
 
 const ADMIN_TELEGRAM_ID = '6062598843';
+
+// Efectos de Sonido HD
+const playCashSound = () => {
+  const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+  sound.volume = 0.6;
+  sound.play().catch(() => {});
+};
+
+const playATMRegisterSound = () => {
+  const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/888/888-preview.mp3');
+  sound.volume = 0.6;
+  sound.play().catch(() => {});
+};
+
+// Tasas de cambio aproximadas por divisa respecto al USDT
+const currencyRates = {
+  USDT: { symbol: '$', rate: 1, flag: '🇺🇸', code: 'USDT' },
+  COP: { symbol: '$', rate: 4100, flag: '🇨🇴', code: 'COP' },  // Peso Colombiano
+  MXN: { symbol: '$', rate: 18.5, flag: '🇲🇽', code: 'MXN' },  // Peso Mexicano
+  ARS: { symbol: '$', rate: 1250, flag: '🇦🇷', code: 'ARS' },  // Peso Argentino
+  BRL: { symbol: 'R$', rate: 5.4, flag: '🇧🇷', code: 'BRL' },   // Real Brasileño
+  VES: { symbol: 'Bs', rate: 40.0, flag: '🇻🇪', code: 'VES' },  // Bolívar Venezolano
+  PEN: { symbol: 'S/', rate: 3.75, flag: '🇵🇪', code: 'PEN' },  // Sol Peruano
+  CLP: { symbol: '$', rate: 940, flag: '🇨🇱', code: 'CLP' },   // Peso Chileno
+  EUR: { symbol: '€', rate: 0.92, flag: '🇪🇺', code: 'EUR' },   // Euro
+  DOP: { symbol: 'RD$', rate: 60.0, flag: '🇩🇴', code: 'DOP' }  // Peso Dominicano
+};
 
 // Diccionario de Traducciones para los 10 Idiomas
 const translations = {
@@ -44,11 +71,11 @@ const translations = {
     generated: "Generado",
     activeTotal: "Activos / Total",
     rechargeTitle: "Recargar Saldo (USDT - TRC20)",
-    rechargeDesc: "Transfiere USDT a nuestra dirección oficial de Binance y reporta tu pago aquí para acreditar tu saldo.",
+    rechargeDesc: "Transfiere USDT a nuestra dirección oficial y reporta tu pago aquí.",
     officialAddress: "Dirección Oficial (TRC20):",
     sentAmount: "Monto Enviado (USDT)",
     txHash: "Hash de la Transacción (TXID)",
-    reportDeposit: "📤 Reportar Depósito a Binance",
+    reportDeposit: "📤 Reportar Depósito",
     depositHistory: "Historial de Depósitos",
     noDeposits: "No hay depósitos registrados aún.",
     withdrawTitle: "Retirar Fondos (USDT)",
@@ -58,20 +85,20 @@ const translations = {
     requestWithdrawBtn: "🚀 SOLICITAR RETIRO INMEDIATO",
     withdrawHistory: "Historial de Retiros",
     noWithdrawals: "No hay retiros registrados aún.",
-    companyAbout: "Somos una corporación global especializada en minería de criptomonedas de alto rendimiento y computación distribuida, operando bajo estrictos marcos legales y financieros internacionales.",
+    companyAbout: "Somos una corporación global especializada en minería de criptomonedas de alto rendimiento y computación distribuida.",
     legalName: "Razón Social:",
     officialReg: "Registro Oficial (UK):",
     headquarters: "Sede Central:",
     supportEmail: "Correo de Soporte:",
     farmsTitle: "Granjas de Minería & Energía Renovable",
-    farmsDesc: "Nuestras operaciones se extienden a lo largo del Reino Unido y Europa. Diseñamos y operamos granjas de servidores ASIC de última generación impulsadas en su totalidad por energía solar, parques eólicos y fuentes 100% verdes, garantizando un modelo ecológico, sostenible y con un bajo costo operativo energético.",
+    farmsDesc: "Nuestras operaciones se extienden a lo largo del Reino Unido y Europa con fuentes 100% verdes.",
     globalCapacity: "Capacidad Operativa Global:",
     auditTitle: "Certificación Financiera AAA",
-    auditDesc: "Contamos con la prestigiosa Certificación AAA otorgada por auditores internacionales independientes, avalando nuestra sólida solvencia, reservas en activos digitales y la estabilidad total de nuestros planes de minería en la nube.",
+    auditDesc: "Contamos con la prestigiosa Certificación AAA otorgada por auditores internacionales independientes.",
     fsRating: "Calificación FSK",
     blockchainAudit: "Auditoría Blockchain",
     manualRechargeTitle: "Recarga Manual de Saldo (Dueño)",
-    manualRechargeDesc: "Suma saldo directamente al usuario tras verificar su comprobante o pago externo.",
+    manualRechargeDesc: "Suma saldo directamente al usuario tras verificar su pago externo.",
     telegramIdLabel: "ID o Username de Telegram",
     amountToAddLabel: "Monto a Sumar (USDT)",
     creditBalanceBtn: "➕ ACREDITAR SALDO AL USUARIO",
@@ -123,11 +150,11 @@ const translations = {
     generated: "Generated",
     activeTotal: "Active / Total",
     rechargeTitle: "Recharge Balance (USDT - TRC20)",
-    rechargeDesc: "Transfer USDT to our official Binance address and report your payment here to credit your balance.",
+    rechargeDesc: "Transfer USDT to our official address and report your payment here.",
     officialAddress: "Official Address (TRC20):",
     sentAmount: "Amount Sent (USDT)",
     txHash: "Transaction Hash (TXID)",
-    reportDeposit: "📤 Report Deposit to Binance",
+    reportDeposit: "📤 Report Deposit",
     depositHistory: "Deposit History",
     noDeposits: "No deposits registered yet.",
     withdrawTitle: "Withdraw Funds (USDT)",
@@ -137,20 +164,20 @@ const translations = {
     requestWithdrawBtn: "🚀 REQUEST IMMEDIATE WITHDRAWAL",
     withdrawHistory: "Withdrawal History",
     noWithdrawals: "No withdrawals registered yet.",
-    companyAbout: "We are a global corporation specialized in high-performance cryptocurrency mining and distributed computing, operating under strict international legal and financial frameworks.",
+    companyAbout: "We are a global corporation specialized in high-performance cryptocurrency mining and distributed computing.",
     legalName: "Legal Name:",
     officialReg: "Official Registration (UK):",
     headquarters: "Headquarters:",
     supportEmail: "Support Email:",
     farmsTitle: "Mining Farms & Renewable Energy",
-    farmsDesc: "Our operations extend throughout the UK and Europe. We design and operate state-of-the-art ASIC server farms powered entirely by solar energy, wind parks, and 100% green sources, ensuring an ecological, sustainable model with low energy operating costs.",
+    farmsDesc: "Our operations extend throughout the UK and Europe with 100% green sources.",
     globalCapacity: "Global Operational Capacity:",
     auditTitle: "AAA Financial Certification",
-    auditDesc: "We hold the prestigious AAA Certification granted by independent international auditors, endorsing our solid solvency, digital asset reserves, and total stability of our cloud mining plans.",
+    auditDesc: "We hold the prestigious AAA Certification granted by independent international auditors.",
     fsRating: "FSK Rating",
     blockchainAudit: "Blockchain Audit",
     manualRechargeTitle: "Manual Balance Recharge (Owner)",
-    manualRechargeDesc: "Add balance directly to the user after verifying their receipt or external payment.",
+    manualRechargeDesc: "Add balance directly to the user after verifying their external payment.",
     telegramIdLabel: "Telegram ID or Username",
     amountToAddLabel: "Amount to Add (USDT)",
     creditBalanceBtn: "➕ CREDIT USER BALANCE",
@@ -202,11 +229,11 @@ const translations = {
     generated: "Gerado",
     activeTotal: "Ativos / Total",
     rechargeTitle: "Recarregar Saldo (USDT - TRC20)",
-    rechargeDesc: "Transfira USDT para nosso endereço oficial da Binance e informe seu pagamento aqui.",
+    rechargeDesc: "Transfira USDT para nosso endereço oficial e informe seu pagamento aqui.",
     officialAddress: "Endereço Oficial (TRC20):",
     sentAmount: "Valor Enviado (USDT)",
     txHash: "Hash da Transação (TXID)",
-    reportDeposit: "📤 Reportar Depósito para Binance",
+    reportDeposit: "📤 Reportar Depósito",
     depositHistory: "Histórico de Depósitos",
     noDeposits: "Nenhum depósito registrado ainda.",
     withdrawTitle: "Retirar Fundos (USDT)",
@@ -216,20 +243,20 @@ const translations = {
     requestWithdrawBtn: "🚀 SOLICITAR RETIRADA IMEDIATA",
     withdrawHistory: "Histórico de Retiradas",
     noWithdrawals: "Nenhuma retirada registrada ainda.",
-    companyAbout: "Somos uma corporação global especializada em mineração de criptomoedas de alto desempenho e computação distribuída.",
+    companyAbout: "Somos uma corporação global especializada em mineração de criptomoedas de alto desempenho.",
     legalName: "Razão Social:",
     officialReg: "Registro Oficial (UK):",
     headquarters: "Sede Central:",
     supportEmail: "E-mail de Suporte:",
     farmsTitle: "Fazendas de Mineração & Energia Renovável",
-    farmsDesc: "Nossas operações se estendem por todo o Reino Unido e Europa, utilizando fontes 100% verdes.",
+    farmsDesc: "Nossas operações se estendem por todo o Reino Unido e Europa com fontes 100% verdes.",
     globalCapacity: "Capacidade Operacional Global:",
     auditTitle: "Certificação Financeira AAA",
     auditDesc: "Possuímos a prestigiosa Certificação AAA concedida por auditores internacionais independentes.",
     fsRating: "Classificação FSK",
     blockchainAudit: "Auditoria Blockchain",
     manualRechargeTitle: "Recarga Manual de Saldo (Dono)",
-    manualRechargeDesc: "Adicione saldo diretamente ao usuário após verificar o comprovante.",
+    manualRechargeDesc: "Adicione saldo diretamente ao usuário após verificar o pagamento.",
     telegramIdLabel: "ID ou Username do Telegram",
     amountToAddLabel: "Valor a Adicionar (USDT)",
     creditBalanceBtn: "➕ CREDITAR SALDO AO USUÁRIO",
@@ -281,11 +308,11 @@ const translations = {
     generated: "Généré",
     activeTotal: "Actifs / Total",
     rechargeTitle: "Recharger le Solde (USDT - TRC20)",
-    rechargeDesc: "Transférez des USDT sur notre adresse officielle Binance et signalez votre paiement ici.",
+    rechargeDesc: "Transférez des USDT sur notre adresse officielle et signalez votre paiement.",
     officialAddress: "Adresse Officielle (TRC20):",
     sentAmount: "Montant Envoyé (USDT)",
     txHash: "Hash de la Transaction (TXID)",
-    reportDeposit: "📤 Signaler le Dépôt à Binance",
+    reportDeposit: "📤 Signaler le Dépôt",
     depositHistory: "Historique des Dépôts",
     noDeposits: "Aucun dépôt enregistré.",
     withdrawTitle: "Retirer des Fonds (USDT)",
@@ -301,7 +328,7 @@ const translations = {
     headquarters: "Siège Social :",
     supportEmail: "E-mail de Support :",
     farmsTitle: "Fermes de Minage & Énergie Verte",
-    farmsDesc: "Nos opérations s'étendent à travers le Royaume-Uni et l'Europe avec 100% d'énergie verte.",
+    farmsDesc: "Nos opérations s'étendent à travers le Royaume-Uni et l'Europe avec de l'énergie verte.",
     globalCapacity: "Capacité Opérationnelle Globale :",
     auditTitle: "Certification Financière AAA",
     auditDesc: "Nous détenons la prestigieuse Certification AAA accordée par des auditeurs indépendants.",
@@ -360,11 +387,11 @@ const translations = {
     generated: "Generiert",
     activeTotal: "Aktiv / Gesamt",
     rechargeTitle: "Guthaben aufladen (USDT - TRC20)",
-    rechargeDesc: "Überweisen Sie USDT an unsere offizielle Binance-Adresse und melden Sie Ihre Zahlung hier.",
+    rechargeDesc: "Überweisen Sie USDT an unsere offizielle Adresse und melden Sie Ihre Zahlung hier.",
     officialAddress: "Offizielle Adresse (TRC20):",
     sentAmount: "Gesendeter Betrag (USDT)",
     txHash: "Transaktions-Hash (TXID)",
-    reportDeposit: "📤 Einzahlung bei Binance melden",
+    reportDeposit: "📤 Einzahlung melden",
     depositHistory: "Einzahlungshistorie",
     noDeposits: "Noch keine Einzahlungen registriert.",
     withdrawTitle: "Guthaben abheben (USDT)",
@@ -380,7 +407,7 @@ const translations = {
     headquarters: "Hauptsitz:",
     supportEmail: "Support-E-Mail:",
     farmsTitle: "Mining-Farmen & Erneuerbare Energien",
-    farmsDesc: "Unsere Betriebe erstrecken sich über ganz Großbritannien und Europa mit 100% grünem Strom.",
+    farmsDesc: "Unsere Betriebe erstrecken sich über ganz Großbritannien und Europa mit grünem Strom.",
     globalCapacity: "Globale Betriebskapazität:",
     auditTitle: "AAA Finanzzertifizierung",
     auditDesc: "Wir besitzen die renommierte AAA-Zertifizierung unabhängiger internationaler Prüfer.",
@@ -439,11 +466,11 @@ const translations = {
     generated: "Generato",
     activeTotal: "Attivi / Totale",
     rechargeTitle: "Ricarica Saldo (USDT - TRC20)",
-    rechargeDesc: "Trasferisci USDT al nostro indirizzo ufficiale Binance e segnala il pagamento qui.",
+    rechargeDesc: "Trasferisci USDT al nostro indirizzo ufficiale e segnala il pagamento qui.",
     officialAddress: "Indirizzo Ufficiale (TRC20):",
     sentAmount: "Importo Inviato (USDT)",
     txHash: "Hash della Transazione (TXID)",
-    reportDeposit: "📤 Segnala Deposito a Binance",
+    reportDeposit: "📤 Segnala Deposito",
     depositHistory: "Cronologia Depositi",
     noDeposits: "Nessun deposito registrato.",
     withdrawTitle: "Preleva Fondi (USDT)",
@@ -459,14 +486,14 @@ const translations = {
     headquarters: "Sede Centrale:",
     supportEmail: "Email di Supporto:",
     farmsTitle: "Farm di Mining & Energia Rinnovabile",
-    farmsDesc: "Le nostre operazioni si estendono nel Regno Unito e in Europa con energia 100% verde.",
+    farmsDesc: "Le nostre operazioni si estendono nel Regno Unito e in Europa con energia verde.",
     globalCapacity: "Capacità Operativa Globale:",
     auditTitle: "Certificazione Finanziaria AAA",
     auditDesc: "Possediamo la prestigiosa Certificazione AAA rilasciata da revisori indipendenti.",
     fsRating: "Valutazione FSK",
     blockchainAudit: "Audit Blockchain",
     manualRechargeTitle: "Ricarica Manuale Saldo (Proprietario)",
-    manualRechargeDesc: "Aggiungi saldo direttamente all'utente dopo aver verificato la ricevuta.",
+    manualRechargeDesc: "Aggiungi saldo direttamente all'utente dopo aver verificato il pagamento.",
     telegramIdLabel: "ID o Username Telegram",
     amountToAddLabel: "Importo da Aggiungere (USDT)",
     creditBalanceBtn: "➕ ACCREDITA SALDO UTENTE",
@@ -518,11 +545,11 @@ const translations = {
     generated: "Заработано",
     activeTotal: "Активных / Всего",
     rechargeTitle: "Пополнить баланс (USDT - TRC20)",
-    rechargeDesc: "Переведите USDT на наш официальный адрес Binance и сообщите платеж здесь.",
+    rechargeDesc: "Переведите USDT на наш официальный адрес и сообщите платеж здесь.",
     officialAddress: "Официальный адрес (TRC20):",
     sentAmount: "Отправленная сумма (USDT)",
     txHash: "Хэш транзакции (TXID)",
-    reportDeposit: "📤 Сообщить о депозите в Binance",
+    reportDeposit: "📤 Сообщить о депозите",
     depositHistory: "История депозитов",
     noDeposits: "Депозитов пока нет.",
     withdrawTitle: "Вывод средств (USDT)",
@@ -531,7 +558,6 @@ const translations = {
     walletAddressLabel: "Адрес кошелька (TRC20)",
     requestWithdrawBtn: "🚀 ЗАПРОСИТЬ ВЫВОД СРЕДСТВ",
     withdrawalHistory: "История выводов",
-    withdrawHistory: "История выводов",
     noWithdrawals: "Выводов пока нет.",
     companyAbout: "Мы — глобальная корпорация, специализирующаяся на высокопроизводительном майнинге криптовалют.",
     legalName: "Юридическое название:",
@@ -539,14 +565,14 @@ const translations = {
     headquarters: "Штаб-квартира:",
     supportEmail: "Email поддержки:",
     farmsTitle: "Майнинг-фермы и возобновляемая энергия",
-    farmsDesc: "Наши операции простираются по всей Великобритании и Европе на 100% зеленой энергии.",
+    farmsDesc: "Наши операции простираются по всей Великобритании и Европе на зеленой энергии.",
     globalCapacity: "Глобальная мощность:",
     auditTitle: "Финансовый сертификат AAA",
     auditDesc: "У нас престижный сертификат AAA, выданный независимыми аудиторами.",
     fsRating: "Рейтинг FSK",
     blockchainAudit: "Блокчейн-аудит",
     manualRechargeTitle: "Ручное пополнение баланса (Владелец)",
-    manualRechargeDesc: "Пополните баланс пользователя напрямую после проверки чека.",
+    manualRechargeDesc: "Пополните баланс пользователя напрямую после проверки платежа.",
     telegramIdLabel: "ID или Username в Telegram",
     amountToAddLabel: "Сумма пополнения (USDT)",
     creditBalanceBtn: "➕ ПОПОЛНИТЬ БАЛАНС ПОЛЬЗОВАТЕЛЯ",
@@ -598,11 +624,11 @@ const translations = {
     generated: "已赚取",
     activeTotal: "活跃 / 总计",
     rechargeTitle: "充值余额 (USDT - TRC20)",
-    rechargeDesc: "将USDT转入我们的官方币安地址并在下方报告您的支付。",
+    rechargeDesc: "将USDT转入我们的官方地址并在下方报告支付。",
     officialAddress: "官方地址 (TRC20):",
     sentAmount: "发送金额 (USDT)",
     txHash: "交易哈希 (TXID)",
-    reportDeposit: "📤 向币安报告充值",
+    reportDeposit: "📤 报告充值",
     depositHistory: "充值历史",
     noDeposits: "暂无充值记录。",
     withdrawTitle: "提现资金 (USDT)",
@@ -625,7 +651,7 @@ const translations = {
     fsRating: "FSK 评级",
     blockchainAudit: "区块链审计",
     manualRechargeTitle: "手动充值余额 (所有者)",
-    manualRechargeDesc: "核实收据后直接向用户充值余额。",
+    manualRechargeDesc: "核实支付后直接向用户充值余额。",
     telegramIdLabel: "Telegram ID 或用户名",
     amountToAddLabel: "增加金额 (USDT)",
     creditBalanceBtn: "➕ 给用户充值余额",
@@ -677,11 +703,11 @@ const translations = {
     generated: "المكتسب",
     activeTotal: "النشط / الإجمالي",
     rechargeTitle: "إعادة شحن الرصيد (USDT - TRC20)",
-    rechargeDesc: "قم بتحويل USDT إلى عنوان Binance الرسمى وأبلغ عن الدفع هنا.",
+    rechargeDesc: "قم بتحويل USDT إلى عنواننا الرسمي وأبلغ عن الدفع هنا.",
     officialAddress: "العنوان الرسمي (TRC20):",
     sentAmount: "المبلغ المرسل (USDT)",
     txHash: "هاش المعاملة (TXID)",
-    reportDeposit: "📤 الإبلاغ عن الإيداع لـ Binance",
+    reportDeposit: "📤 الإبلاغ عن الإيداع",
     depositHistory: "سجل الإيداعات",
     noDeposits: "لا توجد إيداعات مسجلة حتى الآن.",
     withdrawTitle: "سحب الأموال (USDT)",
@@ -697,14 +723,14 @@ const translations = {
     headquarters: "المقر الرئيسي:",
     supportEmail: "البريد الإلكتروني للدعم:",
     farmsTitle: "مزارع التعدين والطاقة المتجددة",
-    farmsDesc: "تمتد عملياتنا في جميع أنحاء المملكة المتحدة وأوروبا بالطاقة الخضراء 100%.",
+    farmsDesc: "تمتد عملياتنا في جميع أنحاء المملكة المتحدة وأوروبا بالطاقة الخضراء.",
     globalCapacity: "القدرة التشغيلية العالمية:",
     auditTitle: "شهادة AAA المالية",
     auditDesc: "نحن نحمل شهادة AAA المرموقة الممنوحة من مدققين دوليين مستقلين.",
     fsRating: "تصنيف FSK",
     blockchainAudit: "تدقيق البلوكشين",
     manualRechargeTitle: "شحن الرصيد اليدوي (المالك)",
-    manualRechargeDesc: "أضف رصيدًا مباشرة للمستخدم بعد التحقق من الإيصال.",
+    manualRechargeDesc: "أضف رصيدًا مباشرة للمستخدم بعد التحقق من الدفع.",
     telegramIdLabel: "معرف تيليجرام أو اسم المستخدم",
     amountToAddLabel: "المبلغ المراد إضافته (USDT)",
     creditBalanceBtn: "➕ إضافة رصيد للمستخدم",
@@ -756,11 +782,11 @@ const translations = {
     generated: "Üretilen",
     activeTotal: "Aktif / Toplam",
     rechargeTitle: "Bakiye Yükle (USDT - TRC20)",
-    rechargeDesc: "USDT'yi resmi Binance adresimize aktarın ve ödemenizi buraya bildirin.",
+    rechargeDesc: "USDT'yi resmi adresimize aktarın ve ödemenizi buraya bildirin.",
     officialAddress: "Resmi Adres (TRC20):",
     sentAmount: "Gönderilen Tutar (USDT)",
     txHash: "İşlem Hash (TXID)",
-    reportDeposit: "📤 Binance'e Yatırım Bildir",
+    reportDeposit: "📤 Yatırım Bildir",
     depositHistory: "Yatırım Geçmişi",
     noDeposits: "Henüz kayıtlı yatırım yok.",
     withdrawTitle: "Fonları Çek (USDT)",
@@ -774,16 +800,16 @@ const translations = {
     legalName: "Şirket Ünvanı:",
     officialReg: "Resmi Kayıt (UK):",
     headquarters: "Merkez Ofis:",
-    supportEmail: "Destek E-postası:",
+    supportEmail: "Support E-Mail:",
     farmsTitle: "Madencilik Çiftlikleri & Yenilenebilir Enerji",
-    farmsDesc: "Faaliyetlerimiz İngiltere ve Avrupa genelinde %100 yeşil enerji ile yürütülmektedir.",
+    farmsDesc: "Faaliyetlerimiz İngiltere ve Avrupa genelinde yeşil enerji ile yürütülmektedir.",
     globalCapacity: "Küresel Operasyonel Kapasite:",
     auditTitle: "AAA Finansal Sertifikası",
     auditDesc: "Bağımsız uluslararası denetçiler tarafından verilen prestijli AAA Sertifikasına sahibiz.",
     fsRating: "FSK Derecesi",
     blockchainAudit: "Blok Zinciri Denetimi",
     manualRechargeTitle: "Manuel Bakiye Yükleme (Sahip)",
-    manualRechargeDesc: "Makbuzu doğruladıktan sonra kullanıcıya doğrudan bakiye ekleyin.",
+    manualRechargeDesc: "Ödemeyi doğruladıktan sonra kullanıcıya doğrudan bakiye ekleyin.",
     telegramIdLabel: "Telegram ID veya Kullanıcı Adı",
     amountToAddLabel: "Eklenecek Tutar (USDT)",
     creditBalanceBtn: "➕ KULLANICIYA BAKİYE YÜKLE",
@@ -806,6 +832,7 @@ const translations = {
 export default function App() {
   const [activeTab, setActiveTab] = useState('mining');
   const [currentLang, setCurrentLang] = useState('es'); 
+  const [selectedCurrency, setSelectedCurrency] = useState('USDT');
   const t = translations[currentLang] || translations.es;
 
   const [telegramUser, setTelegramUser] = useState(null);
@@ -836,6 +863,13 @@ export default function App() {
 
   const [simulatedCryptoHash, setSimulatedCryptoHash] = useState('0.000000');
 
+  // Sistema de Notificaciones / Campanita Promo
+  const [announcements, setAnnouncements] = useState([]);
+  const [unreadAnnouncement, setUnreadAnnouncement] = useState(null);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [adminPromoText, setAdminPromoText] = useState('');
+  const [promoMsgStatus, setPromoMsgStatus] = useState(null);
+
   const [teamLevels, setTeamLevels] = useState([
     { levelKey: 'level1', activeUsers: 0, totalUsers: 0, commission: '10%', earned: '0.00' },
     { levelKey: 'level2', activeUsers: 0, totalUsers: 0, commission: '5%', earned: '0.00' },
@@ -848,6 +882,18 @@ export default function App() {
   const [manualRechargeUser, setManualRechargeUser] = useState('');
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
   const [adminMsg, setAdminMsg] = useState(null);
+
+  // Formateador de Divisa Local
+  const formatLocalCurrency = (amountUSDT) => {
+    const currencyInfo = currencyRates[selectedCurrency] || currencyRates.USDT;
+    if (selectedCurrency === 'USDT') {
+      return `${amountUSDT.toFixed(2)} USDT`;
+    }
+    const converted = (amountUSDT * currencyInfo.rate).toLocaleString('es-ES', {
+      maximumFractionDigits: 0
+    });
+    return `≈ ${currencyInfo.symbol} ${converted} ${currencyInfo.code}`;
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -880,12 +926,13 @@ export default function App() {
       }
 
       const urlParams = new URLSearchParams(window.location.search);
-      const queryStart = urlParams.get('start');
-      if (queryStart) startParam = queryStart;
+      const queryStart = urlParams.get('start') || urlParams.get('tgWebAppStartParam');
+      if (!startParam && queryStart) startParam = queryStart;
 
       let referredBy = null;
-      if (startParam && startParam.startsWith('ref_')) {
-        referredBy = startParam.replace('ref_', '');
+      if (startParam) {
+        const cleanParam = startParam.toString().trim();
+        referredBy = cleanParam.startsWith('ref_') ? cleanParam.replace('ref_', '') : cleanParam;
       }
 
       telegramIdRef.current = tId;
@@ -923,6 +970,9 @@ export default function App() {
           }
         }
 
+        // Obtener anuncios globales / notificaciones
+        fetchAnnouncements(tId);
+
         const teamResponse = await fetch(`${API_URL}/api/user/team`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -951,6 +1001,59 @@ export default function App() {
 
     return () => clearInterval(timer);
   }, []);
+
+  const fetchAnnouncements = async (tId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/announcements`);
+      const data = await res.json();
+      if (data.success && data.announcements && data.announcements.length > 0) {
+        setAnnouncements(data.announcements);
+        // Verificar si hay alguna no leída en localStorage para este usuario
+        const lastReadId = localStorage.getItem(`aura_last_read_promo_${tId}`);
+        const latest = data.announcements[0]; // El más reciente
+        if (!lastReadId || lastReadId !== latest._id) {
+          setUnreadAnnouncement(latest);
+        }
+      }
+    } catch (err) {
+      console.error('Error al obtener anuncios:', err);
+    }
+  };
+
+  const handleOpenPromoModal = () => {
+    if (announcements.length > 0) {
+      setUnreadAnnouncement(announcements[0]);
+      setShowPromoModal(true);
+      // Marcar como leído
+      const tId = telegramUser?.id?.toString() || telegramIdRef.current;
+      localStorage.setItem(`aura_last_read_promo_${tId}`, announcements[0]._id);
+    }
+  };
+
+  const handleSendAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!adminPromoText.trim()) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/admin/announcement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: adminPromoText.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPromoMsgStatus({ error: false, msg: '🚀 ¡Anuncio enviado con éxito a todos!' });
+        setAdminPromoText('');
+        fetchAnnouncements(telegramUser?.id?.toString() || telegramIdRef.current);
+      } else {
+        setPromoMsgStatus({ error: true, msg: '⚠️ Error al enviar anuncio.' });
+      }
+    } catch (err) {
+      console.error('Error enviando anuncio:', err);
+      setPromoMsgStatus({ error: true, msg: '⚠️ Error de red.' });
+    }
+    setTimeout(() => setPromoMsgStatus(null), 4000);
+  };
 
   const fetchAdminWithdrawals = async () => {
     try {
@@ -1051,6 +1154,8 @@ export default function App() {
   const handleClaimMining = () => {
     if (!isMiningReady || activePlans.length === 0) return;
 
+    playATMRegisterSound(); // Sonido HD Cajero
+
     const totalReward = getTotalRewardAmount();
     const newBalance = balance + totalReward;
     setBalance(newBalance);
@@ -1078,32 +1183,49 @@ export default function App() {
     { id: 4, name: 'LEV 4 - Élite', price: 500, dailyReward: 11.00, dailyPct: '2.2%' },
   ];
 
-  const handleBuyPlan = (plan) => {
+  const handleBuyPlan = async (plan) => {
     if (balance < plan.price) {
       alert('⚠️ Saldo insuficiente en tu billetera.');
       return;
     }
 
-    const newBalance = balance - plan.price;
-    setBalance(newBalance);
+    playCashSound(); // Sonido HD Cash
 
+    const newBalance = balance - plan.price;
     const newActivePlan = {
       ...plan,
-      uniqueId: Date.now() + Math.random(),
-      purchasedAt: currentTime.toLocaleDateString()
+      uniqueId: `${plan.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      purchasedAt: `${currentTime.toLocaleDateString()} ${currentTime.toLocaleTimeString()}`
     };
 
     const updatedPlans = [...activePlans, newActivePlan];
-    setActivePlans(updatedPlans);
 
-    // Reiniciamos el ciclo a 24 horas completas al comprar un nuevo plan
+    setBalance(newBalance);
+    setActivePlans(updatedPlans);
     setIsMiningReady(false);
     setMiningSecondsLeft(86400);
     const newStartTime = new Date();
 
-    alert(`🎉 ¡Plan ${plan.name} adquirido con éxito! El ciclo de minería se ha actualizado.`);
+    alert(`🎉 ¡Rig ${plan.name} adquirido con éxito! Se ha sumado a tus Rigs Activos.`);
 
-    syncToMongo(newBalance, updatedPlans, undefined, undefined, undefined, newStartTime);
+    const currentId = telegramUser?.id?.toString() || telegramIdRef.current;
+    if (currentId) {
+      try {
+        await fetch(`${API_URL}/api/user/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegramId: currentId,
+            balance: newBalance,
+            activePlans: updatedPlans,
+            miningStartedAt: newStartTime
+          })
+        });
+      } catch (error) {
+        console.error('Error al guardar el plan acumulativo en MongoDB:', error);
+        alert('⚠️ Hubo un error de sincronización con el servidor.');
+      }
+    }
   };
 
   const handleCopyLink = () => {
@@ -1328,9 +1450,6 @@ export default function App() {
     }
   };
 
-  const formattedDate = currentTime.toLocaleDateString();
-  const formattedTime = currentTime.toLocaleTimeString();
-
   return (
     <div style={styles.outerContainer}>
       <style>{`
@@ -1355,6 +1474,11 @@ export default function App() {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+        @keyframes blinkDot {
+          0% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.3; transform: scale(1.2); }
+          100% { opacity: 1; transform: scale(1); }
+        }
       `}</style>
 
       <div style={styles.phoneContainer}>
@@ -1365,41 +1489,150 @@ export default function App() {
 
         <header style={styles.header}>
           <div>
-            <h1 style={{ ...styles.headerTitle, fontSize: '26px', fontWeight: '900' }}>
+            <h1 style={{ ...styles.headerTitle, fontSize: '22px', fontWeight: '900' }}>
               AURA MINING
             </h1>
             <p style={styles.headerSubtitle}>
               {telegramUser ? `ID: @${telegramUser.username || telegramUser.first_name}` : '⚡ AI CLOUD MINING'}
             </p>
+            {/* Reloj con Fecha y Hora en tiempo real */}
+            <span style={{ fontSize: '9px', color: '#94a3b8', display: 'block', marginTop: '1px', fontFamily: 'monospace' }}>
+              {currentTime.toLocaleString()}
+            </span>
           </div>
           
           <div style={styles.headerRight}>
-            <div style={styles.langSelectorWrapper}>
-              <Globe size={13} color="#38bdf8" />
-              <select 
-                value={currentLang} 
-                onChange={(e) => setCurrentLang(e.target.value)}
-                style={styles.langSelect}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              {/* Botón de Moneda */}
+              <div style={styles.langSelectorWrapper}>
+                <select 
+                  value={selectedCurrency} 
+                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                  style={styles.langSelect}
+                >
+                  {Object.keys(currencyRates).map((curr) => (
+                    <option key={curr} value={curr} style={styles.langOption}>
+                      {currencyRates[curr].flag} {curr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Botón de Idioma */}
+              <div style={styles.langSelectorWrapper}>
+                <Globe size={13} color="#38bdf8" />
+                <select 
+                  value={currentLang} 
+                  onChange={(e) => setCurrentLang(e.target.value)}
+                  style={styles.langSelect}
+                >
+                  <option value="es" style={styles.langOption}>🇪🇸 ES</option>
+                  <option value="en" style={styles.langOption}>🇬🇧 EN</option>
+                  <option value="pt" style={styles.langOption}>🇧🇷 PT</option>
+                  <option value="fr" style={styles.langOption}>🇫🇷 FR</option>
+                  <option value="de" style={styles.langOption}>🇩🇪 DE</option>
+                  <option value="it" style={styles.langOption}>🇮🇹 IT</option>
+                  <option value="ru" style={styles.langOption}>🇷🇺 RU</option>
+                  <option value="zh" style={styles.langOption}>🇨🇳 ZH</option>
+                  <option value="ar" style={styles.langOption}>🇸🇦 AR</option>
+                  <option value="tr" style={styles.langOption}>🇹🇷 TR</option>
+                </select>
+              </div>
+
+              {/* Botón Campanita / Notificaciones */}
+              <button 
+                onClick={handleOpenPromoModal}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  padding: '4px 6px',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
               >
-                <option value="es" style={styles.langOption}>🇪🇸 ES</option>
-                <option value="en" style={styles.langOption}>🇬🇧 EN</option>
-                <option value="pt" style={styles.langOption}>🇧🇷 PT</option>
-                <option value="fr" style={styles.langOption}>🇫🇷 FR</option>
-                <option value="de" style={styles.langOption}>🇩🇪 DE</option>
-                <option value="it" style={styles.langOption}>🇮🇹 IT</option>
-                <option value="ru" style={styles.langOption}>🇷🇺 RU</option>
-                <option value="zh" style={styles.langOption}>🇨🇳 ZH</option>
-                <option value="ar" style={styles.langOption}>🇸🇦 AR</option>
-                <option value="tr" style={styles.langOption}>🇹🇷 TR</option>
-              </select>
+                <Bell size={15} color="#facc15" />
+                {unreadAnnouncement && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '2px',
+                    right: '2px',
+                    width: '7px',
+                    height: '7px',
+                    backgroundColor: '#10b981',
+                    borderRadius: '50%',
+                    animation: 'blinkDot 1.5s infinite'
+                  }} />
+                )}
+              </button>
             </div>
 
             <div style={styles.walletPill}>
               <Wallet size={14} color="#34d399" />
-              <span style={{ fontSize: '12px', fontWeight: '800', color: '#34d399' }}>{balance.toFixed(2)} USDT</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#34d399' }}>{balance.toFixed(2)} USDT</span>
+                {selectedCurrency !== 'USDT' && (
+                  <span style={{ fontSize: '8px', fontWeight: '700', color: '#facc15' }}>{formatLocalCurrency(balance)}</span>
+                )}
+              </div>
             </div>
           </div>
         </header>
+
+        {/* Modal de Promociones / Campanita */}
+        {showPromoModal && unreadAnnouncement && (
+          <div style={{
+            position: 'fixed',
+            inset: '0',
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            zIndex: '1000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}>
+            <div style={{
+              backgroundColor: '#0b1329',
+              border: '1px solid rgba(250, 204, 21, 0.4)',
+              borderRadius: '20px',
+              padding: '22px',
+              width: '100%',
+              maxWidth: '360px',
+              boxShadow: '0 15px 35px rgba(0,0,0,0.6)',
+              position: 'relative'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Sparkles size={20} color="#facc15" />
+                <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#facc15' }}>📢 Anuncio Oficial / Promo</h3>
+              </div>
+              <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.6', marginBottom: '16px', whiteSpace: 'pre-line' }}>
+                {unreadAnnouncement.message}
+              </p>
+              <span style={{ fontSize: '9px', color: '#64748b', display: 'block', marginBottom: '16px' }}>
+                Fecha: {new Date(unreadAnnouncement.createdAt || Date.now()).toLocaleDateString()}
+              </span>
+              <button 
+                onClick={() => setShowPromoModal(false)}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#facc15',
+                  color: '#020617',
+                  border: 'none',
+                  padding: '10px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: '900',
+                  cursor: 'pointer'
+                }}
+              >
+                ENTENDIDO ¡GRACIAS!
+              </button>
+            </div>
+          </div>
+        )}
 
         <main style={styles.mainContent}>
           {activeTab === 'mining' && (
@@ -1411,7 +1644,7 @@ export default function App() {
                 </div>
                 <div style={styles.blueMetricCard}>
                   <span style={styles.cardLabel}>{t.performance24h}</span>
-                  <span style={{ fontSize: '15px', fontWeight: '900', color: '#34d399' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '900', color: '#34d399' }}>
                     +{getTotalRewardAmount().toFixed(2)} USDT
                   </span>
                 </div>
@@ -1530,6 +1763,11 @@ export default function App() {
                       <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
                         {t.daily}: <span style={{ color: '#34d399', fontWeight: 'bold' }}>+{plan.dailyReward} USDT</span> ({plan.dailyPct})
                       </p>
+                      {selectedCurrency !== 'USDT' && (
+                        <span style={{ fontSize: '10px', color: '#facc15', fontWeight: 'bold', display: 'block', marginTop: '2px' }}>
+                          {formatLocalCurrency(plan.price)}
+                        </span>
+                      )}
                     </div>
                     <button 
                       onClick={() => handleBuyPlan(plan)}
@@ -1834,6 +2072,37 @@ export default function App() {
 
           {activeTab === 'admin' && isAdmin && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Panel para Enviar Mensaje / Promo Masiva */}
+              <div style={{ ...styles.panelBox, border: '1px solid rgba(250, 204, 21, 0.4)' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#facc15' }}>
+                  <Bell size={16} /> 📢 Enviar Anuncio / Promo Masiva (Campanita)
+                </h3>
+                <p style={{ fontSize: '11px', color: '#cbd5e1', marginBottom: '12px' }}>
+                  Envía una notificación emergente a la campanita de todos los usuarios conectados (ej: promos de fines de semana).
+                </p>
+
+                {promoMsgStatus && (
+                  <div style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px', background: promoMsgStatus.error ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', color: promoMsgStatus.error ? '#f87171' : '#34d399' }}>
+                    {promoMsgStatus.msg}
+                  </div>
+                )}
+
+                <form onSubmit={handleSendAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <textarea 
+                      rows="3"
+                      placeholder="Escribe el mensaje promocional aquí..." 
+                      value={adminPromoText}
+                      onChange={(e) => setAdminPromoText(e.target.value)}
+                      style={{ ...styles.inputField, resize: 'none' }} 
+                    />
+                  </div>
+                  <button type="submit" style={{ ...styles.fullWidthButton, backgroundColor: '#facc15', color: '#020617' }}>
+                    🚀 PUBLICAR ANUNCIO A TODOS
+                  </button>
+                </form>
+              </div>
+
               <div style={{ ...styles.panelBox, border: '1px solid rgba(56, 189, 248, 0.4)' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#38bdf8' }}>
                   <PlusCircle size={16} /> {t.manualRechargeTitle}
@@ -2085,7 +2354,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-end',
-    gap: '4px',
+    gap: '6px',
   },
   headerTitle: {
     fontSize: '15px',
@@ -2129,7 +2398,7 @@ const styles = {
     borderRadius: '10px',
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
+    gap: '6px',
   },
   mainContent: {
     position: 'relative',
