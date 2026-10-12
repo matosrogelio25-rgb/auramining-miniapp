@@ -1873,7 +1873,7 @@ export default function App() {
                 <div style={{ background: '#020617', padding: '10px', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>{t.officialAddress}</span>
                   <strong style={{ fontSize: '11px', color: '#facc15', wordBreak: 'break-all' }}>
-                    0x88255a44d0beed90ca4a1ff49711f855e9fe5f19
+                    TDEoWCvCt3udibNa78H7U4sbEnTxYrAUV6
                   </strong>
                 </div>
 
