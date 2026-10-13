@@ -42,7 +42,7 @@ const translations = {
     performance24h: "Rendimiento 24h",
     noPlan: "SIN PLAN",
     claim: "¡RECOGER!",
-    miningActive: "Plan(es) Minando Activos",
+    miningActive: "Rig(s) Minando Activos",
     systemStandby: "SISTEMA EN ESPERA",
     miningDescReady: "✨ ¡Ciclo de 24h completado! Toca la bolsa para cobrar tus ganancias.",
     miningDescWait: "Generando acumulado",
@@ -70,9 +70,9 @@ const translations = {
     level3: "Nivel 3",
     generated: "Generado",
     activeTotal: "Activos / Total",
-    rechargeTitle: "Recargar Saldo (USDT - TRC20)",
-    rechargeDesc: "Transfiere USDT a nuestra dirección oficial y reporta tu pago aquí.",
-    officialAddress: "Dirección Oficial (TRC20):",
+    rechargeTitle: "Recargar Saldo (USDT - Red TRC20)",
+    rechargeDesc: "Transfiere USDT a nuestra dirección oficial en la red TRC20 y reporta tu pago aquí.",
+    officialAddress: "Dirección Oficial (USDT - Red TRC20):",
     sentAmount: "Monto Enviado (USDT)",
     txHash: "Hash de la Transacción (TXID)",
     reportDeposit: "📤 Reportar Depósito",
@@ -81,7 +81,7 @@ const translations = {
     withdrawTitle: "Retirar Fondos (USDT)",
     withdrawMin: "Mínimo de retiro: 15 USDT (Red TRC20).",
     withdrawAmountLabel: "Monto a Retirar (USDT)",
-    walletAddressLabel: "Dirección Billetera (TRC20)",
+    walletAddressLabel: "Dirección Billetera (Red TRC20)",
     requestWithdrawBtn: "🚀 SOLICITAR RETIRO INMEDIATO",
     withdrawHistory: "Historial de Retiros",
     noWithdrawals: "No hay retiros registrados aún.",
@@ -151,9 +151,9 @@ const translations = {
     level3: "Tier 3",
     generated: "Generated",
     activeTotal: "Active / Total",
-    rechargeTitle: "Recharge Balance (USDT - TRC20)",
-    rechargeDesc: "Transfer USDT to our official address and report your payment here.",
-    officialAddress: "Official Address (TRC20):",
+    rechargeTitle: "Recharge Balance (USDT - TRC20 Network)",
+    rechargeDesc: "Transfer USDT to our official TRC20 address and report your payment here.",
+    officialAddress: "Official Address (USDT - TRC20 Network):",
     sentAmount: "Amount Sent (USDT)",
     txHash: "Transaction Hash (TXID)",
     reportDeposit: "📤 Report Deposit",
@@ -162,7 +162,7 @@ const translations = {
     withdrawTitle: "Withdraw Funds (USDT)",
     withdrawMin: "Minimum withdrawal: 15 USDT (TRC20 Network).",
     withdrawAmountLabel: "Amount to Withdraw (USDT)",
-    walletAddressLabel: "Wallet Address (TRC20)",
+    walletAddressLabel: "Wallet Address (TRC20 Network)",
     requestWithdrawBtn: "🚀 REQUEST IMMEDIATE WITHDRAWAL",
     withdrawHistory: "Withdrawal History",
     noWithdrawals: "No withdrawals registered yet.",
@@ -232,9 +232,9 @@ const translations = {
     level3: "Nível 3",
     generated: "Gerado",
     activeTotal: "Ativos / Total",
-    rechargeTitle: "Recarregar Saldo (USDT - TRC20)",
-    rechargeDesc: "Transfira USDT para nosso endereço oficial e informe seu pagamento aqui.",
-    officialAddress: "Endereço Oficial (TRC20):",
+    rechargeTitle: "Recarregar Saldo (USDT - Rede TRC20)",
+    rechargeDesc: "Transfira USDT para nosso endereço oficial na rede TRC20 e informe seu pagamento aqui.",
+    officialAddress: "Endereço Oficial (USDT - Rede TRC20):",
     sentAmount: "Valor Enviado (USDT)",
     txHash: "Hash da Transação (TXID)",
     reportDeposit: "📤 Reportar Depósito",
@@ -243,7 +243,7 @@ const translations = {
     withdrawTitle: "Retirar Fundos (USDT)",
     withdrawMin: "Retirada mínima: 15 USDT (Rede TRC20).",
     withdrawAmountLabel: "Valor a Retirar (USDT)",
-    walletAddressLabel: "Endereço da Carteira (TRC20)",
+    walletAddressLabel: "Endereço da Carteira (Rede TRC20)",
     requestWithdrawBtn: "🚀 SOLICITAR RETIRADA IMEDIATA",
     withdrawHistory: "Histórico de Retiradas",
     noWithdrawals: "Nenhuma retirada registrada ainda.",
@@ -313,18 +313,18 @@ const translations = {
     level3: "Niveau 3",
     generated: "Généré",
     activeTotal: "Actifs / Total",
-    rechargeTitle: "Recharger le Solde (USDT - TRC20)",
-    rechargeDesc: "Transférez des USDT sur notre adresse officielle.",
-    officialAddress: "Adresse Officielle (TRC20):",
+    rechargeTitle: "Recharger le Solde (USDT - Réseau TRC20)",
+    rechargeDesc: "Transférez des USDT sur notre adresse officielle sur le réseau TRC20.",
+    officialAddress: "Adresse Officielle (USDT - Réseau TRC20) :",
     sentAmount: "Montant Envoyé (USDT)",
     txHash: "Hash de la Transaction (TXID)",
     reportDeposit: "📤 Signaler le Dépôt",
     depositHistory: "Historique des Dépôts",
     noDeposits: "Aucun dépôt enregistré.",
     withdrawTitle: "Retirer des Fonds (USDT)",
-    withdrawMin: "Retrait minimum : 15 USDT (TRC20).",
+    withdrawMin: "Retrait minimum : 15 USDT (Réseau TRC20).",
     withdrawAmountLabel: "Montant à Retirer (USDT)",
-    walletAddressLabel: "Adresse du Portefeuille (TRC20)",
+    walletAddressLabel: "Adresse du Portefeuille (Réseau TRC20)",
     requestWithdrawBtn: "🚀 DEMANDER UN RETRAIT IMMÉDIAT",
     withdrawHistory: "Historique des Retraits",
     noWithdrawals: "Aucun retrait enregistré.",
@@ -394,18 +394,18 @@ const translations = {
     level3: "Stufe 3",
     generated: "Generiert",
     activeTotal: "Aktiv / Gesamt",
-    rechargeTitle: "Guthaben aufladen",
-    rechargeDesc: "Überweisen Sie USDT.",
-    officialAddress: "Offizielle Adresse:",
+    rechargeTitle: "Guthaben aufladen (USDT - TRC20 Netzwerk)",
+    rechargeDesc: "Überweisen Sie USDT an unsere offizielle TRC20-Adresse.",
+    officialAddress: "Offizielle Adresse (USDT - TRC20 Netzwerk):",
     sentAmount: "Gesendeter Betrag",
     txHash: "Transaktions-Hash",
     reportDeposit: "📤 Einzahlung melden",
     depositHistory: "Einzahlungshistorie",
     noDeposits: "Keine Einzahlungen.",
     withdrawTitle: "Guthaben abheben",
-    withdrawMin: "Mindestabhebung: 15 USDT",
+    withdrawMin: "Mindestabhebung: 15 USDT (TRC20)",
     withdrawAmountLabel: "Auszahlungsbetrag",
-    walletAddressLabel: "Wallet-Adresse",
+    walletAddressLabel: "Wallet-Adresse (TRC20 Netzwerk)",
     requestWithdrawBtn: "🚀 AUSZAHLUNG ANFORDERN",
     withdrawHistory: "Auszahlungshistorie",
     noWithdrawals: "Keine Auszahlungen.",
@@ -475,18 +475,18 @@ const translations = {
     level3: "Livello 3",
     generated: "Generato",
     activeTotal: "Attivi / Totale",
-    rechargeTitle: "Ricarica Saldo",
-    rechargeDesc: "Trasferisci USDT.",
-    officialAddress: "Indirizzo Ufficiale:",
+    rechargeTitle: "Ricarica Saldo (USDT - Rete TRC20)",
+    rechargeDesc: "Trasferisci USDT al nostro indirizzo ufficiale sulla rete TRC20.",
+    officialAddress: "Indirizzo Ufficiale (USDT - Rete TRC20):",
     sentAmount: "Importo Inviato",
     txHash: "TXID",
     reportDeposit: "📤 Segnala Deposito",
     depositHistory: "Cronologia",
     noDeposits: "Nessun deposito.",
     withdrawTitle: "Preleva",
-    withdrawMin: "Minimo: 15 USDT",
+    withdrawMin: "Minimo: 15 USDT (Rete TRC20)",
     withdrawAmountLabel: "Importo",
-    walletAddressLabel: "Indirizzo",
+    walletAddressLabel: "Indirizzo (Rete TRC20)",
     requestWithdrawBtn: "🚀 RICHIEDI",
     withdrawHistory: "Prelievi",
     noWithdrawals: "Nessun prelievo.",
@@ -556,18 +556,18 @@ const translations = {
     level3: "Уровень 3",
     generated: "Заработано",
     activeTotal: "Активных / Всего",
-    rechargeTitle: "Пополнение",
-    rechargeDesc: "Переведите USDT.",
-    officialAddress: "Адрес:",
+    rechargeTitle: "Пополнение (USDT - Сеть TRC20)",
+    rechargeDesc: "Переведите USDT на наш официальный адрес сети TRC20.",
+    officialAddress: "Официальный адрес (USDT - Сеть TRC20):",
     sentAmount: "Сумма",
     txHash: "TXID",
     reportDeposit: "📤 Сообщить",
     depositHistory: "История",
     noDeposits: "Нет.",
     withdrawTitle: "Вывод",
-    withdrawMin: "Минимум: 15 USDT",
+    withdrawMin: "Минимум: 15 USDT (Сеть TRC20)",
     withdrawAmountLabel: "Сумма",
-    walletAddressLabel: "Адрес",
+    walletAddressLabel: "Адрес (Сеть TRC20)",
     requestWithdrawBtn: "🚀 ВЫВЕСТИ",
     withdrawalHistory: "История выводов",
     noWithdrawals: "Нет.",
@@ -637,18 +637,18 @@ const translations = {
     level3: "三级",
     generated: "已赚取",
     activeTotal: "活跃 / 总计",
-    rechargeTitle: "充值",
-    rechargeDesc: "转入USDT",
-    officialAddress: "官方地址：",
+    rechargeTitle: "充值 (USDT - TRC20 网络)",
+    rechargeDesc: "将 USDT 转入我们在 TRC20 网络上的官方地址。",
+    officialAddress: "官方地址 (USDT - TRC20 网络)：",
     sentAmount: "发送金额",
     txHash: "哈希",
     reportDeposit: "📤 报告充值",
     depositHistory: "历史",
     noDeposits: "暂无",
     withdrawTitle: "提现",
-    withdrawMin: "最低：15 USDT",
+    withdrawMin: "最低：15 USDT (TRC20 网络)",
     withdrawAmountLabel: "金额",
-    walletAddressLabel: "地址",
+    walletAddressLabel: "钱包地址 (TRC20 网络)",
     requestWithdrawBtn: "🚀 申请提现",
     withdrawHistory: "提现历史",
     noWithdrawals: "暂无",
@@ -718,18 +718,18 @@ const translations = {
     level3: "المستوى 3",
     generated: "المكتسب",
     activeTotal: "النشط / الإجمالي",
-    rechargeTitle: "شحن الرصيد",
-    rechargeDesc: "حول USDT",
-    officialAddress: "العنوان:",
+    rechargeTitle: "شحن الرصيد (USDT - شبكة TRC20)",
+    rechargeDesc: "حول USDT إلى عنواننا الرسمي على شبكة TRC20.",
+    officialAddress: "العنوان الرسمي (USDT - شبكة TRC20):",
     sentAmount: "المبلغ",
     txHash: "TXID",
     reportDeposit: "📤 إبلاغ",
     depositHistory: "السجل",
     noDeposits: "لا توجد.",
     withdrawTitle: "سحب",
-    withdrawMin: "الحد الأدنى: 15 USDT",
+    withdrawMin: "الحد الأدنى: 15 USDT (شبكة TRC20)",
     withdrawAmountLabel: "المبلغ",
-    walletAddressLabel: "العنوان",
+    walletAddressLabel: "عنوان المحفظة (شبكة TRC20)",
     requestWithdrawBtn: "🚀 طلب سحب",
     withdrawHistory: "السجل",
     noWithdrawals: "لا توجد.",
@@ -799,18 +799,18 @@ const translations = {
     level3: "Seviye 3",
     generated: "Üretilen",
     activeTotal: "Aktif / Toplam",
-    rechargeTitle: "Bakiye Yükle",
-    rechargeDesc: "USDT aktar.",
-    officialAddress: "Resmi Adres:",
+    rechargeTitle: "Bakiye Yükle (USDT - TRC20 Ağı)",
+    rechargeDesc: "USDT'yi resmi TRC20 adresimize aktarın ve ödemenizi burada bildirin.",
+    officialAddress: "Resmi Adres (USDT - TRC20 Ağı):",
     sentAmount: "Tutar",
     txHash: "TXID",
     reportDeposit: "📤 Yatırım Bildir",
     depositHistory: "Geçmiş",
     noDeposits: "Yok.",
     withdrawTitle: "Çek",
-    withdrawMin: "Minimum: 15 USDT",
+    withdrawMin: "Minimum: 15 USDT (TRC20 Ağı)",
     withdrawAmountLabel: "Tutar",
-    walletAddressLabel: "Cüzdan",
+    walletAddressLabel: "Cüzdan Adresi (TRC20 Ağı)",
     requestWithdrawBtn: "🚀 ÇEK",
     withdrawHistory: "Çekim Geçmişi",
     noWithdrawals: "Yok.",
@@ -864,6 +864,7 @@ export default function App() {
   const [activePlans, setActivePlans] = useState([]); 
 
   const [copied, setCopied] = useState(false);
+  const [addressCopied, setAddressCopied] = useState(false); // Estado para el botón de copia interactiva
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawWallet, setWithdrawWallet] = useState('');
   const [withdrawStatus, setWithdrawStatus] = useState(null);
@@ -915,7 +916,7 @@ export default function App() {
     return `≈ ${currencyInfo.symbol} ${converted} ${currencyInfo.code}`;
   };
 
-  // Reloj inteligente con formato adaptado al idioma/país (12h americano o 24h según región)
+  // Reloj inteligente con formato adaptado al idioma/país
   const formatLocalizedClock = (date) => {
     const use12HourFormat = ['en', 'ar'].includes(currentLang);
     return date.toLocaleString(currentLang === 'en' ? 'en-US' : 'es-ES', {
@@ -959,7 +960,6 @@ export default function App() {
         setTelegramUser({ id: tId, first_name: fName, username: uName });
       }
 
-      // Captura robusta de start_param desde URL o Telegram WebApp
       const urlParams = new URLSearchParams(window.location.search);
       const queryStart = urlParams.get('start') || urlParams.get('tgWebAppStartParam');
       if (!startParam && queryStart) startParam = queryStart;
@@ -1266,6 +1266,14 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Función para copiar la billetera oficial TRC20 con feedback visual
+  const handleCopyAddress = () => {
+    const address = 'TDEoWCvCt3udibNa78H7U4sbEnTxYrAUV6';
+    navigator.clipboard.writeText(address);
+    setAddressCopied(true);
+    setTimeout(() => setAddressCopied(false), 2000);
+  };
+
   const handleWithdraw = async (e) => {
     e.preventDefault();
     const amountNum = parseFloat(withdrawAmount);
@@ -1520,7 +1528,6 @@ export default function App() {
             <p style={styles.headerSubtitle}>
               {telegramUser ? `ID: @${telegramUser.username || telegramUser.first_name}` : '⚡ AI CLOUD MINING'}
             </p>
-            {/* Reloj con formato regional dinámico */}
             <span style={{ fontSize: '9px', color: '#94a3b8', display: 'block', marginTop: '1px', fontFamily: 'monospace' }}>
               {formatLocalizedClock(currentTime)}
             </span>
@@ -1528,7 +1535,6 @@ export default function App() {
           
           <div style={styles.headerRight}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {/* Botón de Moneda */}
               <div style={styles.langSelectorWrapper}>
                 <select 
                   value={selectedCurrency} 
@@ -1543,7 +1549,6 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Botón de Idioma */}
               <div style={styles.langSelectorWrapper}>
                 <Globe size={13} color="#38bdf8" />
                 <select 
@@ -1564,7 +1569,6 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Botón Campanita / Notificaciones */}
               <button 
                 onClick={handleOpenPromoModal}
                 style={{
@@ -1607,7 +1611,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* Modal de Promociones / Campanita */}
         {showPromoModal && unreadAnnouncement && (
           <div style={{
             position: 'fixed',
@@ -1870,11 +1873,39 @@ export default function App() {
                   {t.rechargeDesc}
                 </p>
 
-                <div style={{ background: '#020617', padding: '10px', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>{t.officialAddress}</span>
-                  <strong style={{ fontSize: '11px', color: '#facc15', wordBreak: 'break-all' }}>
-                    TDEoWCvCt3udibNa78H7U4sbEnTxYrAUV6
-                  </strong>
+                {/* Bloque con botón interactivo de Copiar para TRC20 */}
+                <div style={{ background: '#020617', padding: '12px', borderRadius: '10px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>
+                    {t.officialAddress}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <strong style={{ fontSize: '11px', color: '#facc15', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                      TDEoWCvCt3udibNa78H7U4sbEnTxYrAUV6
+                    </strong>
+                    <button 
+                      type="button"
+                      onClick={handleCopyAddress} 
+                      style={{
+                        backgroundColor: addressCopied ? '#10b981' : '#1d4ed8',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.2s ease',
+                        boxShadow: addressCopied ? '0 0 10px rgba(16, 185, 129, 0.4)' : '0 2px 6px rgba(29, 78, 216, 0.3)'
+                      }}
+                    >
+                      <Copy size={12} />
+                      {addressCopied ? t.copied : t.copy}
+                    </button>
+                  </div>
                 </div>
 
                 {depositStatus && (
@@ -2074,7 +2105,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Nueva sección detallada de Hardware e Infraestructura */}
               <div style={styles.panelBox}>
                 <h3 style={{ fontSize: '14px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#facc15' }}>
                   <Zap size={16} /> {t.hardwareInfra}
