@@ -13,9 +13,12 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ ¡Conectado a MongoDB Atlas exitosamente!'))
   .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
+// Esquema de Usuario Completo (Soporte MiniApp Telegram + Plataforma Web)
 const userSchema = new mongoose.Schema({
   telegramId: { type: String, required: true, unique: true },
-  username: String,
+  username: { type: String, sparse: true },
+  email: { type: String, sparse: true },
+  password: { type: String }, // Contraseña para la plataforma corporativa web
   firstName: String,
   balance: { type: Number, default: 0.00 },
   activePlans: { type: Array, default: [] },
@@ -28,7 +31,7 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-// Esquema global para las solicitudes de retiro de la plataforma
+// Esquema para las solicitudes de retiro
 const withdrawalRequestSchema = new mongoose.Schema({
   telegramId: { type: String, required: true },
   username: String,
@@ -41,7 +44,7 @@ const withdrawalRequestSchema = new mongoose.Schema({
 
 const WithdrawalRequest = mongoose.model('WithdrawalRequest', withdrawalRequestSchema);
 
-// Esquema para los depósitos reportados por los usuarios
+// Esquema para los depósitos reportados por usuarios
 const depositSchema = new mongoose.Schema({
   telegramId: { type: String, required: true },
   username: String,
@@ -54,7 +57,7 @@ const depositSchema = new mongoose.Schema({
 
 const Deposit = mongoose.model('Deposit', depositSchema);
 
-// 📢 Esquema para los Anuncios / Promociones Globales (Campanita)
+// Esquema para los Anuncios / Promociones Globales (Campanita)
 const announcementSchema = new mongoose.Schema({
   message: { type: String, required: true },
   createdAt: { type: Date, default: Date.now }
@@ -62,7 +65,71 @@ const announcementSchema = new mongoose.Schema({
 
 const Announcement = mongoose.model('Announcement', announcementSchema);
 
-// Ruta para obtener o registrar al usuario al abrir la Mini App (con soporte de referidos)
+// --- 🔐 RUTAS DE AUTENTICACIÓN (LOGIN & REGISTRO WEB) ---
+
+// Registro de Usuario Web
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { identifier, password } = req.body;
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, message: 'Faltan datos requeridos.' });
+    }
+
+    const cleanId = identifier.trim().toLowerCase();
+    const isEmail = cleanId.includes('@');
+
+    let existing = await User.findOne(isEmail ? { email: cleanId } : { username: cleanId });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'El usuario o correo ya está registrado.' });
+    }
+
+    const newUserId = 'user_' + Date.now();
+    const newUser = new User({
+      telegramId: newUserId,
+      username: isEmail ? cleanId.split('@')[0] : cleanId,
+      email: isEmail ? cleanId : undefined,
+      password: password.trim(),
+      firstName: cleanId,
+      miningStartedAt: new Date()
+    });
+
+    await newUser.save();
+    res.json({ success: true, user: newUser });
+  } catch (err) {
+    console.error('Error en /api/auth/register:', err);
+    res.status(500).json({ success: false, message: 'Error en el servidor.' });
+  }
+});
+
+// Inicio de Sesión de Usuario Web
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { identifier, password } = req.body;
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, message: 'Faltan datos.' });
+    }
+
+    const cleanId = identifier.trim().toLowerCase();
+    const isEmail = cleanId.includes('@');
+
+    let user = await User.findOne(isEmail ? { email: cleanId } : { username: cleanId });
+    if (!user) {
+      user = await User.findOne({ telegramId: cleanId });
+    }
+
+    if (!user || user.password !== password.trim()) {
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
+    }
+
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('Error en /api/auth/login:', err);
+    res.status(500).json({ success: false, message: 'Error en el servidor.' });
+  }
+});
+
+// --- RUTAS DE USUARIO GENERAL ---
+
 app.post('/api/user', async (req, res) => {
   try {
     const { telegramId, username, firstName, referredBy } = req.body;
@@ -90,7 +157,6 @@ app.post('/api/user', async (req, res) => {
   }
 });
 
-// Ruta para calcular y obtener las estadísticas de referidos por niveles (Nivel 1, 2 y 3)
 app.post('/api/user/team', async (req, res) => {
   try {
     const { telegramId } = req.body;
@@ -143,7 +209,6 @@ app.post('/api/user/team', async (req, res) => {
   }
 });
 
-// Ruta para guardar cambios permanentemente
 app.post('/api/user/update', async (req, res) => {
   try {
     const { telegramId, balance, activePlans, miningEarningsHistory, withdrawalHistory, depositHistory, miningStartedAt } = req.body;
@@ -170,7 +235,6 @@ app.post('/api/user/update', async (req, res) => {
   }
 });
 
-// Ruta para crear una solicitud de retiro global
 app.post('/api/user/withdraw', async (req, res) => {
   try {
     const { telegramId, username, amount, wallet, date } = req.body;
@@ -194,7 +258,31 @@ app.post('/api/user/withdraw', async (req, res) => {
   }
 });
 
-// Ruta para que el administrador obtenga todas las solicitudes de retiro globales
+app.post('/api/user/deposit', async (req, res) => {
+  try {
+    const { telegramId, username, amount, txHash, date } = req.body;
+    if (!telegramId || !amount || !txHash) {
+      return res.status(400).json({ success: false, message: 'Faltan datos requeridos.' });
+    }
+
+    const newDeposit = new Deposit({
+      telegramId,
+      username: username || 'Usuario',
+      amount: parseFloat(amount),
+      txHash,
+      date: date || new Date().toLocaleString()
+    });
+
+    await newDeposit.save();
+    res.json({ success: true, deposit: newDeposit });
+  } catch (error) {
+    console.error('Error en /api/user/deposit:', error);
+    res.status(500).json({ success: false, error: 'Error al registrar el depósito' });
+  }
+});
+
+// --- RUTAS DE ADMINISTRACIÓN Y CONTROL ---
+
 app.get('/api/admin/withdrawals', async (req, res) => {
   try {
     const requests = await WithdrawalRequest.find().sort({ createdAt: -1 });
@@ -205,7 +293,6 @@ app.get('/api/admin/withdrawals', async (req, res) => {
   }
 });
 
-// Ruta para actualizar el estado de un retiro (Aprobado/Pagado o Denegado) desde el admin y sincronizar al usuario
 app.post('/api/admin/withdrawal/update', async (req, res) => {
   try {
     const { id, status, telegramId } = req.body;
@@ -237,31 +324,6 @@ app.post('/api/admin/withdrawal/update', async (req, res) => {
   }
 });
 
-// Ruta para registrar un depósito reportado por el usuario
-app.post('/api/user/deposit', async (req, res) => {
-  try {
-    const { telegramId, username, amount, txHash, date } = req.body;
-    if (!telegramId || !amount || !txHash) {
-      return res.status(400).json({ success: false, message: 'Faltan datos requeridos.' });
-    }
-
-    const newDeposit = new Deposit({
-      telegramId,
-      username: username || 'Usuario',
-      amount: parseFloat(amount),
-      txHash,
-      date: date || new Date().toLocaleString()
-    });
-
-    await newDeposit.save();
-    res.json({ success: true, deposit: newDeposit });
-  } catch (error) {
-    console.error('Error en /api/user/deposit:', error);
-    res.status(500).json({ success: false, error: 'Error al registrar el depósito' });
-  }
-});
-
-// Ruta para que el admin obtenga la lista de depósitos reportados
 app.get('/api/admin/deposits', async (req, res) => {
   try {
     const deposits = await Deposit.find().sort({ createdAt: -1 });
@@ -272,7 +334,6 @@ app.get('/api/admin/deposits', async (req, res) => {
   }
 });
 
-// Ruta para actualizar el estado de un depósito (Aprobado o Rechazado) y distribuir comisiones multinivel hacia arriba
 app.post('/api/admin/deposit/update', async (req, res) => {
   try {
     const { id, status, telegramId } = req.body;
@@ -332,7 +393,6 @@ app.post('/api/admin/deposit/update', async (req, res) => {
   }
 });
 
-// Ruta para la recarga manual de saldo desde el panel de admin
 app.post('/api/admin/recharge', async (req, res) => {
   try {
     const { targetUser, amount } = req.body;
@@ -345,7 +405,8 @@ app.post('/api/admin/recharge', async (req, res) => {
     let user = await User.findOne({
       $or: [
         { telegramId: cleanQuery },
-        { username: { $regex: new RegExp(`^${cleanQuery}$`, 'i') } }
+        { username: { $regex: new RegExp(`^${cleanQuery}$`, 'i') } },
+        { email: { $regex: new RegExp(`^${cleanQuery}$`, 'i') } }
       ]
     });
 
@@ -363,9 +424,8 @@ app.post('/api/admin/recharge', async (req, res) => {
   }
 });
 
-// --- 📢 NUEVAS RUTAS PARA EL SISTEMA DE ANUNCIOS / CAMPANITA ---
+// --- SISTEMA DE ANUNCIOS Y PROMOCIONES (CAMPANITA) ---
 
-// 1. Guardar un nuevo anuncio/promoción masiva desde el Admin
 app.post('/api/admin/announcement', async (req, res) => {
   try {
     const { message } = req.body;
@@ -386,7 +446,6 @@ app.post('/api/admin/announcement', async (req, res) => {
   }
 });
 
-// 2. Obtener los anuncios para que los usuarios los lean en la campanita
 app.get('/api/announcements', async (req, res) => {
   try {
     const announcements = await Announcement.find().sort({ createdAt: -1 }).limit(10);
