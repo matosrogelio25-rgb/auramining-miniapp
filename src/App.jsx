@@ -1654,7 +1654,7 @@ export default function App() {
                     <Mail size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px' }} />
                     <input 
                       type="text" 
-                      placeholder="ej. saucebtb o tu@correo.com" 
+                      placeholder="ej. auramining o tu@correo.com" 
                       value={authIdentifier}
                       onChange={(e) => setAuthIdentifier(e.target.value)}
                       style={{ ...styles.inputField, paddingLeft: '38px' }} 
