@@ -220,7 +220,11 @@ app.post('/api/user/update', async (req, res) => {
     if (miningEarningsHistory !== undefined) updateData.miningEarningsHistory = miningEarningsHistory;
     if (withdrawalHistory !== undefined) updateData.withdrawalHistory = withdrawalHistory;
     if (depositHistory !== undefined) updateData.depositHistory = depositHistory;
-    if (miningStartedAt !== undefined) updateData.miningStartedAt = miningStartedAt;
+    
+    // Solo actualiza miningStartedAt si se envía explícitamente (ej. al comprar un plan o reclamar)
+    if (miningStartedAt !== undefined) {
+      updateData.miningStartedAt = miningStartedAt;
+    }
 
     const updatedUser = await User.findOneAndUpdate(
       { telegramId },
