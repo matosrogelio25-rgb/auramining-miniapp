@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cpu, Users, ShieldCheck, Wallet, 
-  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers, RefreshCw, Bell 
+  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers, RefreshCw, Bell, LogOut, Lock, Mail, User 
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://auramining-miniapp.onrender.com';
@@ -17,7 +17,7 @@ const playCashSound = () => {
 
 const playATMRegisterSound = () => {
   const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/888/888-preview.mp3');
-  sound.volume = 0.6;
+  sound.volume = 0.8;
   sound.play().catch(() => {});
 };
 
@@ -850,6 +850,13 @@ const translations = {
 };
 
 export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authIdentifier, setAuthIdentifier] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState(null);
+
   const [activeTab, setActiveTab] = useState('mining');
   const [currentLang, setCurrentLang] = useState('es'); 
   const [selectedCurrency, setSelectedCurrency] = useState('USDT');
@@ -864,7 +871,7 @@ export default function App() {
   const [activePlans, setActivePlans] = useState([]); 
 
   const [copied, setCopied] = useState(false);
-  const [addressCopied, setAddressCopied] = useState(false); // Estado para el botón de copia interactiva
+  const [addressCopied, setAddressCopied] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawWallet, setWithdrawWallet] = useState('');
   const [withdrawStatus, setWithdrawStatus] = useState(null);
@@ -884,7 +891,6 @@ export default function App() {
 
   const [simulatedCryptoHash, setSimulatedCryptoHash] = useState('0.000000');
 
-  // Sistema de Notificaciones / Campanita Promo
   const [announcements, setAnnouncements] = useState([]);
   const [unreadAnnouncement, setUnreadAnnouncement] = useState(null);
   const [showPromoModal, setShowPromoModal] = useState(false);
@@ -904,7 +910,14 @@ export default function App() {
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
   const [adminMsg, setAdminMsg] = useState(null);
 
-  // Formateador de Divisa Local
+  // Pantalla de carga inicial (Splash Screen)
+  useEffect(() => {
+    const splashTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+    return () => clearTimeout(splashTimer);
+  }, []);
+
   const formatLocalCurrency = (amountUSDT) => {
     const currencyInfo = currencyRates[selectedCurrency] || currencyRates.USDT;
     if (selectedCurrency === 'USDT') {
@@ -916,7 +929,6 @@ export default function App() {
     return `≈ ${currencyInfo.symbol} ${converted} ${currencyInfo.code}`;
   };
 
-  // Reloj inteligente con formato adaptado al idioma/país
   const formatLocalizedClock = (date) => {
     const use12HourFormat = ['en', 'ar'].includes(currentLang);
     return date.toLocaleString(currentLang === 'en' ? 'en-US' : 'es-ES', {
@@ -934,107 +946,82 @@ export default function App() {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-
-    const initAndFetchUser = async () => {
-      const tg = window.Telegram?.WebApp;
-      let tId = null;
-      let uName = 'Sin username';
-      let fName = 'Minero';
-      let startParam = null;
-
-      if (tg) {
-        if (tg.expand) tg.expand();
-        if (tg.initDataUnsafe?.user) {
-          tId = tg.initDataUnsafe.user.id.toString();
-          uName = tg.initDataUnsafe.user.username || uName;
-          fName = tg.initDataUnsafe.user.first_name || fName;
-          setTelegramUser(tg.initDataUnsafe.user);
-        }
-        if (tg.initDataUnsafe?.start_param) {
-          startParam = tg.initDataUnsafe.start_param;
-        }
-      }
-
-      if (!tId) {
-        tId = '6062598843';
-        setTelegramUser({ id: tId, first_name: fName, username: uName });
-      }
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const queryStart = urlParams.get('start') || urlParams.get('tgWebAppStartParam');
-      if (!startParam && queryStart) startParam = queryStart;
-
-      let referredBy = null;
-      if (startParam) {
-        const cleanParam = startParam.toString().trim();
-        referredBy = cleanParam.startsWith('ref_') ? cleanParam.replace('ref_', '') : cleanParam;
-      }
-
-      telegramIdRef.current = tId;
-      setIsAdmin(tId === ADMIN_TELEGRAM_ID);
-
-      try {
-        const response = await fetch(`${API_URL}/api/user`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            telegramId: tId, 
-            username: uName, 
-            firstName: fName,
-            referredBy: referredBy && referredBy !== tId ? referredBy : null 
-          })
-        });
-        const data = await response.json();
-        if (response.ok && data) {
-          if (data.balance !== undefined) setBalance(data.balance);
-          if (data.activePlans) setActivePlans(data.activePlans);
-          if (data.miningEarningsHistory) setMiningEarningsHistory(data.miningEarningsHistory);
-          if (data.withdrawalHistory) setWithdrawalHistory(data.withdrawalHistory);
-          if (data.depositHistory) setDepositHistory(data.depositHistory);
-          
-          if (data.miningStartedAt) {
-            const elapsedSeconds = Math.floor((new Date().getTime() - new Date(data.miningStartedAt).getTime()) / 1000);
-            const remaining = 86400 - elapsedSeconds;
-            if (remaining <= 0) {
-              setIsMiningReady(true);
-              setMiningSecondsLeft(0);
-            } else {
-              setMiningSecondsLeft(remaining);
-              setIsMiningReady(false);
-            }
-          }
-        }
-
-        fetchAnnouncements(tId);
-
-        const teamResponse = await fetch(`${API_URL}/api/user/team`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ telegramId: tId })
-        });
-        const teamData = await teamResponse.json();
-        if (teamResponse.ok && teamData.success && teamData.teamLevels) {
-          const mappedTeam = teamData.teamLevels.map((lvl, idx) => ({
-            ...lvl,
-            levelKey: idx === 0 ? 'level1' : idx === 1 ? 'level2' : 'level3'
-          }));
-          setTeamLevels(mappedTeam);
-        }
-
-        if (tId === ADMIN_TELEGRAM_ID) {
-          fetchAdminWithdrawals();
-          fetchAdminDeposits();
-        }
-
-      } catch (error) {
-        console.error('Error conectando con MongoDB Atlas:', error);
-      }
-    };
-
-    initAndFetchUser();
-
     return () => clearInterval(timer);
   }, []);
+
+  // Manejo de autenticación por correo/usuario y contraseña (incluyendo la cuenta de dueño)
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+
+    if (!authIdentifier.trim() || !authPassword.trim()) {
+      setAuthError('⚠️ Por favor completa todos los campos.');
+      return;
+    }
+
+    // Acceso directo como Dueño Admin
+    if (authIdentifier.trim() === 'saucebtb' && authPassword === 'Camila1216@') {
+      playATMRegisterSound();
+      setIsAdmin(true);
+      setTelegramUser({ id: ADMIN_TELEGRAM_ID, username: 'saucebtb', first_name: 'Dueño Admin' });
+      setIsAuthenticated(true);
+      loadUserData(ADMIN_TELEGRAM_ID);
+      return;
+    }
+
+    try {
+      const endpoint = authMode === 'login' ? `${API_URL}/api/auth/login` : `${API_URL}/api/auth/register`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: authIdentifier.trim(), password: authPassword.trim() })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        playATMRegisterSound(); // Sonido de bienvenida / cajero
+        const userData = data.user;
+        setTelegramUser(userData);
+        setIsAdmin(userData.telegramId === ADMIN_TELEGRAM_ID || userData.isAdmin);
+        setBalance(userData.balance || 0);
+        setActivePlans(userData.activePlans || []);
+        setMiningEarningsHistory(userData.miningEarningsHistory || []);
+        setWithdrawalHistory(userData.withdrawalHistory || []);
+        setDepositHistory(userData.depositHistory || []);
+        setIsAuthenticated(true);
+      } else {
+        setAuthError(data.message || '⚠️ Credenciales incorrectas.');
+      }
+    } catch (err) {
+      console.error('Error de red:', err);
+      setAuthError('⚠️ Error conectando con el servidor.');
+    }
+  };
+
+  const loadUserData = async (tId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: tId, username: 'saucebtb', firstName: 'Admin' })
+      });
+      const data = await response.json();
+      if (response.ok && data) {
+        if (data.balance !== undefined) setBalance(data.balance);
+        if (data.activePlans) setActivePlans(data.activePlans);
+        if (data.miningEarningsHistory) setMiningEarningsHistory(data.miningEarningsHistory);
+        if (data.withdrawalHistory) setWithdrawalHistory(data.withdrawalHistory);
+        if (data.depositHistory) setDepositHistory(data.depositHistory);
+      }
+      fetchAnnouncements(tId);
+      if (tId === ADMIN_TELEGRAM_ID) {
+        fetchAdminWithdrawals();
+        fetchAdminDeposits();
+      }
+    } catch (e) {
+      console.error('Error cargando usuario admin:', e);
+    }
+  };
 
   const fetchAnnouncements = async (tId) => {
     try {
@@ -1260,13 +1247,12 @@ export default function App() {
   };
 
   const handleCopyLink = () => {
-    const refLink = `https://t.me/auraminingg_bot?start=ref_${telegramUser?.id || telegramIdRef.current}`;
+    const refLink = `https://auramining.lat/?start=ref_${telegramUser?.id || telegramIdRef.current}`;
     navigator.clipboard.writeText(refLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Función para copiar la billetera oficial TRC20 con feedback visual
   const handleCopyAddress = () => {
     const address = 'TDEoWCvCt3udibNa78H7U4sbEnTxYrAUV6';
     navigator.clipboard.writeText(address);
@@ -1483,6 +1469,105 @@ export default function App() {
     }
   };
 
+  // 1. Pantalla de carga (Splash Screen) con círculo azul girando
+  if (isLoading) {
+    return (
+      <div style={styles.outerContainer}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+          <div style={{
+            width: '70px',
+            height: '70px',
+            borderRadius: '50%',
+            border: '4px solid rgba(56, 189, 248, 0.2)',
+            borderTopColor: '#38bdf8',
+            animation: 'spinBorder 1s linear infinite'
+          }} />
+          <h2 style={{ color: '#ffffff', fontSize: '20px', fontWeight: '900', letterSpacing: '1px' }}>
+            AURA MINING
+          </h2>
+          <span style={{ color: '#38bdf8', fontSize: '11px', fontWeight: 'bold' }}>Cargando Plataforma Corporativa...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Pantalla de Autenticación (Login / Registro)
+  if (!isAuthenticated) {
+    return (
+      <div style={styles.outerContainer}>
+        <div style={styles.phoneContainer}>
+          <div style={styles.bgBlurContainer}>
+            <div style={styles.bgImageLayer} />
+            <div style={styles.bgDarkOverlay} />
+          </div>
+
+          <div style={{ position: 'relative', zIndex: '10', flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <h1 style={{ fontSize: '26px', fontWeight: '900', color: '#ffffff', marginBottom: '6px' }}>
+                AURA MINING
+              </h1>
+              <p style={{ fontSize: '12px', color: '#38bdf8' }}>Plataforma Corporativa Segura</p>
+            </div>
+
+            <div style={styles.panelBox}>
+              <div style={{ display: 'flex', marginBottom: '16px', background: '#020617', padding: '4px', borderRadius: '12px' }}>
+                <button 
+                  onClick={() => setAuthMode('login')} 
+                  style={{ flex: 1, padding: '8px', background: authMode === 'login' ? '#1d4ed8' : 'transparent', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Iniciar Sesión
+                </button>
+                <button 
+                  onClick={() => setAuthMode('register')} 
+                  style={{ flex: 1, padding: '8px', background: authMode === 'register' ? '#1d4ed8' : 'transparent', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Registrarse
+                </button>
+              </div>
+
+              {authError && (
+                <div style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', marginBottom: '12px', background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                  {authError}
+                </div>
+              )}
+
+              <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>
+                    Correo electrónico o Usuario
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="ej. saucebtb o tu@correo.com" 
+                    value={authIdentifier}
+                    onChange={(e) => setAuthIdentifier(e.target.value)}
+                    style={styles.inputField} 
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>
+                    Contraseña
+                  </label>
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    style={styles.inputField} 
+                  />
+                </div>
+                <button type="submit" style={{ ...styles.fullWidthButton, marginTop: '8px' }}>
+                  {authMode === 'login' ? 'ENTRAR A LA PLATAFORMA' : 'CREAR CUENTA NUEVA'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Interfaz Principal
   return (
     <div style={styles.outerContainer}>
       <style>{`
@@ -1596,6 +1681,14 @@ export default function App() {
                     animation: 'blinkDot 1.5s infinite'
                   }} />
                 )}
+              </button>
+
+              <button 
+                onClick={() => setIsAuthenticated(false)}
+                title="Cerrar Sesión"
+                style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', padding: '4px 6px', cursor: 'pointer' }}
+              >
+                <LogOut size={14} color="#f87171" />
               </button>
             </div>
 
@@ -1823,7 +1916,7 @@ export default function App() {
                   <input 
                     type="text" 
                     readOnly 
-                    value={`https://t.me/auraminingg_bot?start=ref_${telegramUser?.id || telegramIdRef.current}`} 
+                    value={`https://auramining.lat/?start=ref_${telegramUser?.id || telegramIdRef.current}`} 
                     style={styles.inputField} 
                   />
                   <button onClick={handleCopyLink} style={styles.actionButton}>
@@ -1873,7 +1966,6 @@ export default function App() {
                   {t.rechargeDesc}
                 </p>
 
-                {/* Bloque con botón interactivo de Copiar para TRC20 */}
                 <div style={{ background: '#020617', padding: '12px', borderRadius: '10px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>
                     {t.officialAddress}
@@ -2631,4 +2723,3 @@ const styles = {
     fontSize: '9px', fontWeight: '700',
   },
 };
-
