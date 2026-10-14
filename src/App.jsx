@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Cpu, Users, ShieldCheck, Wallet, 
-  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers, RefreshCw, Bell, LogOut, Lock, Mail, User 
+  Globe, Copy, Sparkles, Zap, ArrowRight, Clock, Award, TrendingUp, History, CheckCircle2, AlertCircle, ShieldAlert, Check, X, PlusCircle, Gift, Layers, RefreshCw, Bell, LogOut, Lock, Mail, User, Eye, EyeOff 
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://auramining-miniapp.onrender.com';
@@ -38,6 +38,14 @@ const currencyRates = {
 // Diccionario de Traducciones para los 10 Idiomas
 const translations = {
   es: {
+    loginTitle: "AURA MINING",
+    loginSubtitle: "Plataforma Corporativa Segura",
+    loginTab: "Iniciar Sesión",
+    registerTab: "Registrarse",
+    emailOrUser: "Correo electrónico o Usuario",
+    passwordLabel: "Contraseña",
+    enterBtn: "ENTRAR A LA PLATAFORMA",
+    registerBtn: "CREAR CUENTA NUEVA",
     activePlans: "Planes Activos",
     performance24h: "Rendimiento 24h",
     noPlan: "SIN PLAN",
@@ -119,6 +127,14 @@ const translations = {
     statusSuccess: "Exitoso"
   },
   en: {
+    loginTitle: "AURA MINING",
+    loginSubtitle: "Secure Corporate Platform",
+    loginTab: "Log In",
+    registerTab: "Register",
+    emailOrUser: "Email or Username",
+    passwordLabel: "Password",
+    enterBtn: "ENTER PLATFORM",
+    registerBtn: "CREATE NEW ACCOUNT",
     activePlans: "Active Plans",
     performance24h: "24h Yield",
     noPlan: "NO PLAN",
@@ -855,6 +871,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authIdentifier, setAuthIdentifier] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState(null);
 
   const [activeTab, setActiveTab] = useState('mining');
@@ -910,13 +927,13 @@ export default function App() {
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
   const [adminMsg, setAdminMsg] = useState(null);
 
-  // Función auxiliar para calcular el tiempo restante de minería basado en la fecha de inicio
+  // Calcular tiempo restante de minería basado en la BD
   const calculateMiningTime = (startedAt) => {
     if (!startedAt) return;
     const startTime = new Date(startedAt).getTime();
     const now = new Date().getTime();
     const elapsedSeconds = Math.floor((now - startTime) / 1000);
-    const totalCycleSeconds = 86400; // 24 horas
+    const totalCycleSeconds = 86400;
 
     if (elapsedSeconds >= totalCycleSeconds) {
       setIsMiningReady(true);
@@ -927,7 +944,6 @@ export default function App() {
     }
   };
 
-  // Pantalla de carga inicial (Splash Screen)
   useEffect(() => {
     const splashTimer = setTimeout(() => {
       setIsLoading(false);
@@ -966,7 +982,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Manejo de autenticación por correo/usuario y contraseña (incluyendo la cuenta de dueño)
+  // Manejo de autenticación
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError(null);
@@ -976,7 +992,6 @@ export default function App() {
       return;
     }
 
-    // Acceso directo como Dueño Admin
     if (authIdentifier.trim() === 'saucebtb' && authPassword === 'Camila1216@') {
       playATMRegisterSound();
       setIsAdmin(true);
@@ -1494,7 +1509,7 @@ export default function App() {
     }
   };
 
-  // 1. Pantalla de carga (Splash Screen) con círculo azul girando
+  // 1. Pantalla de carga (Splash Screen)
   if (isLoading) {
     return (
       <div style={styles.outerContainer}>
@@ -1516,73 +1531,162 @@ export default function App() {
     );
   }
 
-  // 2. Pantalla de Autenticación (Login / Registro)
+  // 2. Pantalla de Autenticación (Login / Registro) con Fondo Animado y Rayos Flotantes
   if (!isAuthenticated) {
     return (
       <div style={styles.outerContainer}>
+        <style>{`
+          @keyframes moveGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          @keyframes floatLightning1 {
+            0% { transform: translateY(0px) rotate(0deg) scale(1); opacity: 0.25; }
+            50% { transform: translateY(-25px) rotate(15deg) scale(1.2); opacity: 0.7; }
+            100% { transform: translateY(0px) rotate(0deg) scale(1); opacity: 0.25; }
+          }
+          @keyframes floatLightning2 {
+            0% { transform: translateY(0px) rotate(0deg) scale(0.9); opacity: 0.3; }
+            50% { transform: translateY(30px) rotate(-20deg) scale(1.1); opacity: 0.8; }
+            100% { transform: translateY(0px) rotate(0deg) scale(0.9); opacity: 0.3; }
+          }
+          @keyframes spinBorder {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+
         <div style={styles.phoneContainer}>
-          <div style={styles.bgBlurContainer}>
-            <div style={styles.bgImageLayer} />
-            <div style={styles.bgDarkOverlay} />
+          {/* Fondo Animado de Colores Azules, Blancos y Grises */}
+          <div style={{
+            position: 'absolute',
+            inset: '0',
+            background: 'linear-gradient(-45deg, #020617, #0f172a, #1e293b, #1d4ed8, #0284c7, #38bdf8, #64748b, #cbd5e1)',
+            backgroundSize: '400% 400%',
+            animation: 'moveGradient 10s ease infinite',
+            zIndex: '0'
+          }} />
+
+          {/* Rayos Flotantes detrás del panel */}
+          <div style={{ position: 'absolute', top: '10%', left: '10%', zIndex: '1', animation: 'floatLightning1 4s ease-in-out infinite', pointerEvents: 'none' }}>
+            <Zap size={45} color="#38bdf8" style={{ filter: 'drop-shadow(0 0 12px #38bdf8)' }} />
+          </div>
+          <div style={{ position: 'absolute', bottom: '15%', right: '12%', zIndex: '1', animation: 'floatLightning2 5s ease-in-out infinite', pointerEvents: 'none' }}>
+            <Zap size={55} color="#ffffff" style={{ filter: 'drop-shadow(0 0 15px #ffffff)' }} />
+          </div>
+          <div style={{ position: 'absolute', top: '48%', right: '8%', zIndex: '1', animation: 'floatLightning1 6s ease-in-out infinite', pointerEvents: 'none' }}>
+            <Zap size={35} color="#60a5fa" style={{ filter: 'drop-shadow(0 0 10px #60a5fa)' }} />
           </div>
 
+          <div style={{ position: 'absolute', inset: '0', backgroundColor: 'rgba(2, 6, 23, 0.65)', zIndex: '2' }} />
+
           <div style={{ position: 'relative', zIndex: '10', flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <h1 style={{ fontSize: '26px', fontWeight: '900', color: '#ffffff', marginBottom: '6px' }}>
-                AURA MINING
+            
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '12px', borderRadius: '50%', marginBottom: '8px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                <Zap size={30} color="#38bdf8" />
+              </div>
+              <h1 style={{ fontSize: '26px', fontWeight: '900', color: '#ffffff', letterSpacing: '1px' }}>
+                {t.loginTitle}
               </h1>
-              <p style={{ fontSize: '12px', color: '#38bdf8' }}>Plataforma Corporativa Segura</p>
+              <p style={{ fontSize: '12px', color: '#38bdf8', marginTop: '2px' }}>{t.loginSubtitle}</p>
             </div>
 
-            <div style={styles.panelBox}>
-              <div style={{ display: 'flex', marginBottom: '16px', background: '#020617', padding: '4px', borderRadius: '12px' }}>
+            <div style={{
+              backgroundColor: 'rgba(11, 19, 41, 0.90)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '24px',
+              padding: '22px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
+              position: 'relative'
+            }}>
+              
+              {/* Selector de Idioma Flotante en Login */}
+              <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '3px 8px', borderRadius: '12px' }}>
+                <Globe size={12} color="#38bdf8" />
+                <select 
+                  value={currentLang} 
+                  onChange={(e) => setCurrentLang(e.target.value)}
+                  style={{ background: 'transparent', border: 'none', color: '#ffffff', fontSize: '10px', fontWeight: 'bold', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value="es" style={{ backgroundColor: '#050b18', color: '#fff' }}>ES</option>
+                  <option value="en" style={{ backgroundColor: '#050b18', color: '#fff' }}>EN</option>
+                  <option value="pt" style={{ backgroundColor: '#050b18', color: '#fff' }}>PT</option>
+                  <option value="fr" style={{ backgroundColor: '#050b18', color: '#fff' }}>FR</option>
+                  <option value="de" style={{ backgroundColor: '#050b18', color: '#fff' }}>DE</option>
+                  <option value="it" style={{ backgroundColor: '#050b18', color: '#fff' }}>IT</option>
+                  <option value="ru" style={{ backgroundColor: '#050b18', color: '#fff' }}>RU</option>
+                  <option value="zh" style={{ backgroundColor: '#050b18', color: '#fff' }}>ZH</option>
+                  <option value="ar" style={{ backgroundColor: '#050b18', color: '#fff' }}>AR</option>
+                  <option value="tr" style={{ backgroundColor: '#050b18', color: '#fff' }}>TR</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', marginBottom: '18px', background: '#020617', padding: '4px', borderRadius: '14px', width: '80%' }}>
                 <button 
                   onClick={() => setAuthMode('login')} 
-                  style={{ flex: 1, padding: '8px', background: authMode === 'login' ? '#1d4ed8' : 'transparent', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '8px', background: authMode === 'login' ? '#1d4ed8' : 'transparent', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
                 >
-                  Iniciar Sesión
+                  {t.loginTab}
                 </button>
                 <button 
                   onClick={() => setAuthMode('register')} 
-                  style={{ flex: 1, padding: '8px', background: authMode === 'register' ? '#1d4ed8' : 'transparent', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '8px', background: authMode === 'register' ? '#1d4ed8' : 'transparent', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
                 >
-                  Registrarse
+                  {t.registerTab}
                 </button>
               </div>
 
               {authError && (
-                <div style={{ padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', marginBottom: '12px', background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                <div style={{ padding: '8px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', marginBottom: '12px', background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
                   {authError}
                 </div>
               )}
 
-              <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>
-                    Correo electrónico o Usuario
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1', display: 'block', marginBottom: '6px' }}>
+                    {t.emailOrUser}
                   </label>
-                  <input 
-                    type="text" 
-                    placeholder="ej. saucebtb o tu@correo.com" 
-                    value={authIdentifier}
-                    onChange={(e) => setAuthIdentifier(e.target.value)}
-                    style={styles.inputField} 
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Mail size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px' }} />
+                    <input 
+                      type="text" 
+                      placeholder="ej. saucebtb o tu@correo.com" 
+                      value={authIdentifier}
+                      onChange={(e) => setAuthIdentifier(e.target.value)}
+                      style={{ ...styles.inputField, paddingLeft: '38px' }} 
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', display: 'block', marginBottom: '4px' }}>
-                    Contraseña
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1', display: 'block', marginBottom: '6px' }}>
+                    {t.passwordLabel}
                   </label>
-                  <input 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    style={styles.inputField} 
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Lock size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px' }} />
+                    <input 
+                      type={showPassword ? 'text' : 'password'} 
+                      placeholder="••••••••" 
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      style={{ ...styles.inputField, paddingLeft: '38px', paddingRight: '38px' }} 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      {showPassword ? <EyeOff size={16} color="#94a3b8" /> : <Eye size={16} color="#94a3b8" />}
+                    </button>
+                  </div>
                 </div>
-                <button type="submit" style={{ ...styles.fullWidthButton, marginTop: '8px' }}>
-                  {authMode === 'login' ? 'ENTRAR A LA PLATAFORMA' : 'CREAR CUENTA NUEVA'}
+
+                <button type="submit" style={{ ...styles.fullWidthButton, marginTop: '10px' }}>
+                  {authMode === 'login' ? t.enterBtn : t.registerBtn}
                 </button>
               </form>
             </div>
@@ -1592,7 +1696,7 @@ export default function App() {
     );
   }
 
-  // 3. Interfaz Principal
+  // 3. Interfaz Principal (App Dashboard)
   return (
     <div style={styles.outerContainer}>
       <style>{`
@@ -2748,4 +2852,3 @@ const styles = {
     fontSize: '9px', fontWeight: '700',
   },
 };
-
