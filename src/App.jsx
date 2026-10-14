@@ -828,7 +828,7 @@ const translations = {
     blockchainAudit: "Blok Zinciri",
     hardwareInfra: "Donanım",
     hardwareDesc: "ASIC sunucular.",
-    manualRechargeTitle: "Manuel Bakiye",
+    manualRechargeTitle: "Manuelle Bakiye",
     manualRechargeDesc: "Bakiye ekle.",
     telegramIdLabel: "Telegram ID",
     amountToAddLabel: "Tutar",
@@ -910,6 +910,23 @@ export default function App() {
   const [manualRechargeAmount, setManualRechargeAmount] = useState('');
   const [adminMsg, setAdminMsg] = useState(null);
 
+  // Función auxiliar para calcular el tiempo restante de minería basado en la fecha de inicio
+  const calculateMiningTime = (startedAt) => {
+    if (!startedAt) return;
+    const startTime = new Date(startedAt).getTime();
+    const now = new Date().getTime();
+    const elapsedSeconds = Math.floor((now - startTime) / 1000);
+    const totalCycleSeconds = 86400; // 24 horas
+
+    if (elapsedSeconds >= totalCycleSeconds) {
+      setIsMiningReady(true);
+      setMiningSecondsLeft(0);
+    } else {
+      setIsMiningReady(false);
+      setMiningSecondsLeft(totalCycleSeconds - elapsedSeconds);
+    }
+  };
+
   // Pantalla de carga inicial (Splash Screen)
   useEffect(() => {
     const splashTimer = setTimeout(() => {
@@ -979,7 +996,7 @@ export default function App() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        playATMRegisterSound(); // Sonido de bienvenida / cajero
+        playATMRegisterSound(); 
         const userData = data.user;
         setTelegramUser(userData);
         setIsAdmin(userData.telegramId === ADMIN_TELEGRAM_ID || userData.isAdmin);
@@ -988,6 +1005,11 @@ export default function App() {
         setMiningEarningsHistory(userData.miningEarningsHistory || []);
         setWithdrawalHistory(userData.withdrawalHistory || []);
         setDepositHistory(userData.depositHistory || []);
+        
+        if (userData.miningStartedAt) {
+          calculateMiningTime(userData.miningStartedAt);
+        }
+
         setIsAuthenticated(true);
       } else {
         setAuthError(data.message || '⚠️ Credenciales incorrectas.');
@@ -1012,6 +1034,9 @@ export default function App() {
         if (data.miningEarningsHistory) setMiningEarningsHistory(data.miningEarningsHistory);
         if (data.withdrawalHistory) setWithdrawalHistory(data.withdrawalHistory);
         if (data.depositHistory) setDepositHistory(data.depositHistory);
+        if (data.miningStartedAt) {
+          calculateMiningTime(data.miningStartedAt);
+        }
       }
       fetchAnnouncements(tId);
       if (tId === ADMIN_TELEGRAM_ID) {
@@ -1538,7 +1563,7 @@ export default function App() {
                   </label>
                   <input 
                     type="text" 
-                    placeholder="ej. auramining o tu@correo.com" 
+                    placeholder="ej. saucebtb o tu@correo.com" 
                     value={authIdentifier}
                     onChange={(e) => setAuthIdentifier(e.target.value)}
                     style={styles.inputField} 
@@ -2723,3 +2748,4 @@ const styles = {
     fontSize: '9px', fontWeight: '700',
   },
 };
+
