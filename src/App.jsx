@@ -1538,7 +1538,7 @@ export default function App() {
                   </label>
                   <input 
                     type="text" 
-                    placeholder="ej. saucebtb o tu@correo.com" 
+                    placeholder="ej. auramining o tu@correo.com" 
                     value={authIdentifier}
                     onChange={(e) => setAuthIdentifier(e.target.value)}
                     style={styles.inputField} 
